@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools Core Charts)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools Core Charts Network Mqtt)
 
 set(SRC_DIR src)
 set(INC_DIR inc)
@@ -21,7 +21,7 @@ set(INC_DIR inc)
 set(TS_FILES ${SRC_DIR}/intelligence_shoepad_app_en_HK.ts)
 
 file(GLOB SRC_FILES ${SRC_DIR}/*.cpp ${SRC_DIR}/*.ui)
-file(GLOB HEADERS ${INC_DIR}/*.h)
+file(GLOB HEADERS ${INC_DIR}/*.h ${INC_DIR}/*.hpp)
 
 set(PROJECT_SOURCES
     ${SRC_FILES}
@@ -58,6 +58,8 @@ endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Charts)
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Network)
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Mqtt)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com

@@ -1,9 +1,12 @@
 #include "mainwindow.h"
+#include "udp_app.hpp"
 
 #include <QApplication>
 #include <QLocale>
+#include <QThread>
 #include <QTranslator>
 #include <QtLogging>
+
 
 QtMessageHandler handler = nullptr;
 
@@ -18,6 +21,13 @@ int main(int argc, char* argv[]) {
 	handler = qInstallMessageHandler(log_file_handler);
 	try {
 		QApplication a(argc, argv);
+
+		UServer server;
+		QThread serverThread;
+		server.moveToThread(&serverThread);
+		QObject::connect(&serverThread, &QThread::started, &server, &UServer::start);
+		QObject::connect(&serverThread, &QThread::finished, &server, &UServer::stop);
+		serverThread.start();
 
 		QTranslator translator;
 		const QStringList uiLanguages = QLocale::system().uiLanguages();
@@ -36,4 +46,6 @@ int main(int argc, char* argv[]) {
 	} catch (...) {
 		qCritical() << "Unknown exception caught";
 	}
+
+	return -1;
 }
