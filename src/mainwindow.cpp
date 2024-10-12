@@ -30,6 +30,18 @@ MainWindow::MainWindow(QWidget* parent)
 	this->ui->graphicsView->setStyleSheet("QGraphicsView { border: 0px solid #000; }");
 	auto img = QPixmap("images/insole.jpg");
 	img = img.scaled(this->ui->graphicsView->size(), Qt::KeepAspectRatio);
+
+	// set image to rounded corners
+	QBitmap mask(img.size());
+	QPainter painter(&mask);
+	painter.setRenderHint(QPainter::Antialiasing);
+	painter.fillRect(img.rect(), Qt::white);
+	painter.setBrush(Qt::black);
+	painter.drawRoundedRect(img.rect(), 10, 10);
+	painter.end();
+	img.setMask(mask);
+
+	// set image to graphicsView
 	this->ui->graphicsView->setScene(new QGraphicsScene(this));
 	this->ui->graphicsView->scene()->addPixmap(img);
 
