@@ -82,3 +82,8 @@ if(WIN32)
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND windeployqt --verbose 1 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 endif()
+
+# copy images/ to bin folder if different
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/images $<TARGET_FILE_DIR:${PROJECT_NAME}>/images)
