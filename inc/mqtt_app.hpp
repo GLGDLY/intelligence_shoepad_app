@@ -1,7 +1,7 @@
-// #ifndef _MQTT_APP_HPP
-// #define _MQTT_APP_HPP
+#ifndef _MQTT_APP_HPP
+#define _MQTT_APP_HPP
 
-// #include <Qtmqtt/QMqttClient>
+#include <Qtmqtt/QMqttClient>
 
 // class MqttApp : public QObject {
 // 	Q_OBJECT
@@ -13,4 +13,4 @@
 // 	QMqttClient m_client;
 // };
 
-// #endif // _MQTT_APP_HPP
+#endif // _MQTT_APP_HPP

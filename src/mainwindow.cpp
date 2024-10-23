@@ -6,10 +6,10 @@
 #include <QPixmap>
 #include <QStyleFactory>
 #include <QVBoxLayout>
+#include <QValueAxis>
 #include <QtLogging>
-#include <qminmax.h>
-#include <qnamespace.h>
-#include <qvalueaxis.h>
+#include <QtMinMax>
+
 
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
@@ -130,7 +130,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow() { delete ui; }
 
-void MainWindow::updateMQTTStatus(int state) { // QMqttSubscription::SubscriptionState state) {
+void MainWindow::updateMQTTStatus(QMqttSubscription::SubscriptionState state) {
 	switch (state) {
 		case 0: { // QMqttSubscription::Unsubscribed
 			mqtt_status->setText("MQTT: Disconnected");

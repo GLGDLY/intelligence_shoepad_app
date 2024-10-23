@@ -15,6 +15,18 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools Core Charts Network Mqtt)
 
+# include libbroker.h and add libbroker.a static library
+# execute_process(COMMAND go build -buildmode=c-archive -o ./lib/libbroker.a WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/broker)
+add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a
+    COMMAND go build -buildmode=c-archive -o ./lib/libbroker.a
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/broker
+    DEPENDS ${CMAKE_SOURCE_DIR}/broker/main.go
+    COMMENT "Building libbroker.a"
+)
+include_directories(${CMAKE_SOURCE_DIR}/broker/lib)
+add_library(broker STATIC IMPORTED)
+set_target_properties(broker PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a)
+
 set(SRC_DIR src)
 set(INC_DIR inc)
 
@@ -60,6 +72,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Charts)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Network)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Mqtt)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE broker)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com

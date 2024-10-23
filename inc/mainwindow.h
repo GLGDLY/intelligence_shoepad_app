@@ -1,6 +1,8 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "mqtt_app.hpp"
+
 #include <QComboBox>
 #include <QLabel>
 #include <QMainWindow>
@@ -32,7 +34,7 @@ private:
 	// QMqttClient* mqtt_client;
 
 private slots:
-	void updateMQTTStatus(int state); // QMqttSubscription::SubscriptionState state);
+	void updateMQTTStatus(QMqttSubscription::SubscriptionState state);
 
 	void updateChartSelect(int index);
 	void updateChart();

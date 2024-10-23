@@ -1,5 +1,6 @@
 #include "udp_app.hpp"
 
+#include "libbroker.h"
 #include "msgbox_utils.hpp"
 
 #include <QApplication>
@@ -40,6 +41,8 @@ void UServer::start() {
 		}
 	}
 
+	StartBroker();
+
 	qDebug() << "[UDP] Starting server";
 
 	// create server
@@ -52,7 +55,10 @@ void UServer::start() {
 	}
 }
 
-void UServer::stop() { udpSocket->close(); }
+void UServer::stop() {
+	StopBroker();
+	udpSocket->close();
+}
 
 void UServer::readPendingDatagrams() {
 	while (udpSocket->hasPendingDatagrams()) {
