@@ -18,7 +18,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QSplineSeries(), new QSplineSeries(), new QSplineSeries()}
-	, mqtt_status(new QLabel()) {
+	, mqtt_status(new QLabel())
+	, mqtt(new MqttApp()) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -124,40 +125,50 @@ MainWindow::MainWindow(QWidget* parent)
 	mqtt_status->setFont(QFont("Calibri", 11, QFont::Medium));
 	mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 	mqtt_status->setGeometry(10, this->height() - 25 - 10, 220, 25);
-	// connect(m_sub, &QMqttSubscription::stateChanged, this, &MainWindow::updateMQTTStatus);
 	this->layout()->addWidget(mqtt_status);
+
+	// mqtt
+	mqtt->connect_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
+	mqtt->connect_signal(&QMqttClient::messageReceived, this, &MainWindow::updateData);
 }
 
-MainWindow::~MainWindow() { delete ui; }
+MainWindow::~MainWindow() {
+	delete ui;
+	for (int i = 0; i < 3; i++) {
+		delete chartView[i];
+		delete chart[i];
+		delete series[i];
+	}
+	delete comboBox;
+	delete mqtt_status;
+	delete mqtt;
+}
 
-void MainWindow::updateMQTTStatus(QMqttSubscription::SubscriptionState state) {
+void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
 	switch (state) {
-		case 0: { // QMqttSubscription::Unsubscribed
+		case QMqttClient::ClientState::Disconnected: {
 			mqtt_status->setText("MQTT: Disconnected");
 			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
-		case 1: { // QMqttSubscription::SubscriptionPending (not yet confirmed by the broker)
-			mqtt_status->setText("MQTT: SubscriptionPending");
+		case QMqttClient::ClientState::Connecting: {
+			mqtt_status->setText("MQTT: Connecting");
 			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
-		case 2: { // QMqttSubscription::Subscribed
+		case QMqttClient::ClientState::Connected: {
 			mqtt_status->setText("MQTT: Connected");
 			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
 			break;
 		}
-		case 3: { // QMqttSubscription::UnsubscriptionPending (not yet confirmed by the broker)
-			mqtt_status->setText("MQTT: UnsubscriptionPending");
-			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
-			break;
-		}
-		case 4: { // QMqttSubscription::Error
-			mqtt_status->setText("MQTT: Error");
-			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
-			break;
-		}
+		default: break;
 	}
+}
+
+void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& topic) {
+	qDebug() << "Received message: " << message << " from topic: " << topic.name();
+
+	// this->updateChart();
 }
 
 void MainWindow::updateChartSelect(int index) {

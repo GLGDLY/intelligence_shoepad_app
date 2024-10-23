@@ -2,15 +2,22 @@
 #define _MQTT_APP_HPP
 
 #include <Qtmqtt/QMqttClient>
+#include <qobjectdefs.h>
 
-// class MqttApp : public QObject {
-// 	Q_OBJECT
-// public:
-// 	explicit MqttApp(QObject* parent = nullptr);
-// 	~MqttApp();
+class MqttApp : public QObject {
+	Q_OBJECT
+public:
+	explicit MqttApp(QObject* parent = nullptr);
+	~MqttApp();
 
-// private:
-// 	QMqttClient m_client;
-// };
+	template <typename Func1, typename Func2>
+	void connect_signal(Func1 signal, const typename QtPrivate::ContextTypeForFunctor<Func2>::ContextType* context,
+						Func2&& slot) {
+		connect(client, signal, context, slot);
+	}
+
+private:
+	QMqttClient* client;
+};
 
 #endif // _MQTT_APP_HPP

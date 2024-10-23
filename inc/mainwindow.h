@@ -31,10 +31,11 @@ private:
 	QChart* chart[3];
 	QSplineSeries* series[3];
 	QLabel* mqtt_status;
-	// QMqttClient* mqtt_client;
+	MqttApp* mqtt;
 
 private slots:
-	void updateMQTTStatus(QMqttSubscription::SubscriptionState state);
+	void updateMQTTStatus(QMqttClient::ClientState state);
+	void updateData(const QByteArray& message, const QMqttTopicName& topic);
 
 	void updateChartSelect(int index);
 	void updateChart();
