@@ -128,8 +128,8 @@ MainWindow::MainWindow(QWidget* parent)
 	this->layout()->addWidget(mqtt_status);
 
 	// mqtt
-	mqtt->connect_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
-	mqtt->connect_signal(&QMqttClient::messageReceived, this, &MainWindow::updateData);
+	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
+	connect(mqtt, &MqttApp::messageReceived, this, &MainWindow::updateData);
 }
 
 MainWindow::~MainWindow() {

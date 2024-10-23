@@ -11,10 +11,17 @@ public:
 	~MqttApp();
 
 	template <typename Func1, typename Func2>
-	void connect_signal(Func1 signal, const typename QtPrivate::ContextTypeForFunctor<Func2>::ContextType* context,
-						Func2&& slot) {
+	void connect_client_signal(Func1 signal,
+							   const typename QtPrivate::ContextTypeForFunctor<Func2>::ContextType* context,
+							   Func2&& slot) {
 		connect(client, signal, context, slot);
 	}
+
+Q_SIGNALS:
+	void messageReceived(const QByteArray& message, const QMqttTopicName& topic);
+
+private slots:
+	void onMessage(const QByteArray& message, const QMqttTopicName& topic);
 
 private:
 	QMqttClient* client;

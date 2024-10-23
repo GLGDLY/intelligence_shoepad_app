@@ -14,7 +14,15 @@ MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this
 	client->setWillQoS(0);
 	client->setWillRetain(true);
 
+	connect(client, &QMqttClient::messageReceived, this, &MqttApp::onMessage);
+
 	client->connectToHost();
 }
 
 MqttApp::~MqttApp() { delete client; }
+
+
+void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) {
+	qDebug() << "Received message: " << message << " from topic: " << topic.name();
+	emit messageReceived(message, topic);
+}
