@@ -49,7 +49,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// comboBox
 	comboBox->setInsertPolicy(QComboBox::InsertAtBottom);
 	comboBox->setStyle(QStyleFactory::create("Fusion"));
-	comboBox->addItems({"1", "2", "3"});
+	// comboBox->addItems({"1", "2", "3"});
 	connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::updateChartSelect);
 	// add to mainwindow on (450, 0)
 	comboBox->setGeometry(450 + 10, 10, this->width() - 450 - 20, 25);
@@ -66,11 +66,11 @@ MainWindow::MainWindow(QWidget* parent)
 		chart[i]->setLocale(QLocale(QLocale::English));
 
 		/* !===== for testing =====! */
-		series[i]->append(series[i]->points().size(), i + 1);
-		series[i]->append(series[i]->points().size(), i + 10);
-		series[i]->append(series[i]->points().size(), i + 3);
-		series[i]->append(series[i]->points().size(), i - 2);
-		series[i]->append(series[i]->points().size(), i + 5);
+		// series[i]->append(series[i]->points().size(), i + 1);
+		// series[i]->append(series[i]->points().size(), i + 10);
+		// series[i]->append(series[i]->points().size(), i + 3);
+		// series[i]->append(series[i]->points().size(), i - 2);
+		// series[i]->append(series[i]->points().size(), i + 5);
 		/* !======================! */
 
 		chart[i]->addSeries(series[i]);
@@ -110,7 +110,7 @@ MainWindow::MainWindow(QWidget* parent)
 		chartView[i]->setChart(chart[i]);
 		this->layout()->addWidget(chartView[i]);
 	}
-	this->updateChart();
+	this->reloadChart();
 
 	// mqtt status bar
 	QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect();
@@ -129,7 +129,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// mqtt
 	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
-	connect(mqtt, &MqttApp::messageReceived, this, &MainWindow::updateData);
+	connect(mqtt, &MqttApp::dataReceived, this, &MainWindow::updateData);
 }
 
 MainWindow::~MainWindow() {
@@ -166,24 +166,60 @@ void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
 }
 
 void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& topic) {
-	qDebug() << "Received message: " << message << " from topic: " << topic.name();
+	// esp/%s/d/%d
+	qDebug() << "Received data: " << message << " from topic: " << topic.name();
 
-	// this->updateChart();
+	QString key = topic.levels().at(1) + QString("_") + topic.levels().at(3);
+	if (!this->data_map.contains(key)) {
+		this->data_map.insert(key, DataContainer(1000));
+		this->comboBox->addItem(key);
+	}
+
+	time_t timestamp = QDateTime::currentSecsSinceEpoch();
+
+	QList<QByteArray> data = message.split(',');
+	if (data.size() != 4) {
+		qDebug() << "Invalid data size";
+		return;
+	}
+	int16_t T, X, Y, Z;
+	T = data.at(0).toInt();
+	X = data.at(1).toInt();
+	Y = data.at(2).toInt();
+	Z = data.at(3).toInt();
+
+	this->data_map[key].append(timestamp, X, Y, Z);
+
+	if (this->comboBox->currentText() == key) {
+		this->addChartData(timestamp, X, Y, Z);
+	}
 }
 
 void MainWindow::updateChartSelect(int index) {
 	qDebug() << "Sensor chart index changed to " << index;
 
 	/* !===== for testing =====! */
-	series[0]->append(series[0]->points().size(), index + 1);
-	series[1]->append(series[1]->points().size(), index + 10);
-	series[2]->append(series[2]->points().size(), index + 1000);
+	// series[0]->append(series[0]->points().size(), index + 1);
+	// series[1]->append(series[1]->points().size(), index + 10);
+	// series[2]->append(series[2]->points().size(), index + 1000);
 	/* !======================! */
 
-	this->updateChart();
+	QString key = this->comboBox->itemText(index);
+	DataContainer& data = this->data_map[key];
+	series[0]->clear();
+	series[1]->clear();
+	series[2]->clear();
+
+	for (auto [timestamp, value] : data) {
+		series[0]->append(timestamp, std::get<0>(value));
+		series[1]->append(timestamp, std::get<1>(value));
+		series[2]->append(timestamp, std::get<2>(value));
+	}
+
+	this->reloadChart();
 }
 
-void MainWindow::updateChart() {
+void MainWindow::reloadChart() {
 	qDebug() << "Updating chart";
 
 	for (int i = 0; i < 3; i++) {
@@ -199,6 +235,34 @@ void MainWindow::updateChart() {
 				maxY = qMax(maxY, point.y());
 			}
 		}
+		chart_range_y[i] = std::make_tuple(minY, maxY);
+
+		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
+		const qreal padding = ceil((maxY - minY) * 0.2);
+		chart[i]->axes(Qt::Vertical).back()->setRange(minY - padding, maxY + padding);
+
+		chart[i]->update();
+		chartView[i]->update();
+	}
+}
+
+void MainWindow::addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z) {
+	series[0]->append(timestamp, X);
+	series[1]->append(timestamp, Y);
+	series[2]->append(timestamp, Z);
+
+	const qreal d[3] = {(qreal)X, (qreal)Y, (qreal)Z};
+	for (int i = 0; i < 3; i++) {
+		if (series[i]->points().size() > 1000) {
+			series[i]->remove(0);
+		}
+
+		qreal minX = series[i]->points().first().x();
+		qreal maxX = timestamp;
+		qreal minY = qMin(std::get<0>(chart_range_y[i]), d[i]);
+		qreal maxY = qMax(std::get<1>(chart_range_y[i]), d[i]);
+
+		chart_range_y[i] = std::make_tuple(minY, maxY);
 
 		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
 		const qreal padding = ceil((maxY - minY) * 0.2);

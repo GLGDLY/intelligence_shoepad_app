@@ -1,8 +1,18 @@
 #ifndef _MQTT_APP_HPP
 #define _MQTT_APP_HPP
 
+#include "macro_utils.h"
+
 #include <Qtmqtt/QMqttClient>
 #include <qobjectdefs.h>
+
+#define ESP_MQTT_STATUS_TABLE(X) \
+	X(STATUS_OFFLINE)            \
+	X(STATUS_ONLINE)
+
+typedef enum {
+	ESP_MQTT_STATUS_TABLE(X_EXPAND_ENUM) NUM_OF_ESP_MQTT_STATUS,
+} esp_mqtt_status_t;
 
 class MqttApp : public QObject {
 	Q_OBJECT
@@ -18,7 +28,7 @@ public:
 	}
 
 Q_SIGNALS:
-	void messageReceived(const QByteArray& message, const QMqttTopicName& topic);
+	void dataReceived(const QByteArray& message, const QMqttTopicName& topic);
 
 private slots:
 	void onMessage(const QByteArray& message, const QMqttTopicName& topic);
