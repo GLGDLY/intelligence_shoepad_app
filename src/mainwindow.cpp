@@ -66,11 +66,11 @@ MainWindow::MainWindow(QWidget* parent)
 		chart[i]->setLocale(QLocale(QLocale::English));
 
 		/* !===== for testing =====! */
-		// series[i]->append(series[i]->points().size(), i + 1);
-		// series[i]->append(series[i]->points().size(), i + 10);
-		// series[i]->append(series[i]->points().size(), i + 3);
-		// series[i]->append(series[i]->points().size(), i - 2);
-		// series[i]->append(series[i]->points().size(), i + 5);
+		series[i]->append(series[i]->points().size(), i + 1);
+		series[i]->append(series[i]->points().size(), i + 10);
+		series[i]->append(series[i]->points().size(), i + 3);
+		series[i]->append(series[i]->points().size(), i - 2);
+		series[i]->append(series[i]->points().size(), i + 5);
 		/* !======================! */
 
 		chart[i]->addSeries(series[i]);
