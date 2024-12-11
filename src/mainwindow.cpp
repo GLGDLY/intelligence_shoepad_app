@@ -9,6 +9,7 @@
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
+#include <qabstractitemmodel.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -171,8 +172,14 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 
 	QString key = topic.levels().at(1) + QString("_") + topic.levels().at(3);
 	if (!this->data_map.contains(key)) {
-		this->data_map.insert(key, DataContainer(1000));
 		this->comboBox->addItem(key);
+		this->comboBox->model()->sort(0);
+		if (this->data_map.isEmpty()) {
+			qDebug() << "MQTT connected with data received, setting current index to 0";
+			this->comboBox->setCurrentIndex(0);
+		}
+		this->data_map.insert(key, DataContainer(1000));
+		qDebug() << "new device added: " << key;
 	}
 
 	time_t timestamp = QDateTime::currentSecsSinceEpoch();
@@ -183,10 +190,10 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 		return;
 	}
 	int16_t T, X, Y, Z;
-	T = data.at(0).toInt();
-	X = data.at(1).toInt();
-	Y = data.at(2).toInt();
-	Z = data.at(3).toInt();
+	T = data.at(0).toInt(nullptr, 16);
+	X = data.at(1).toInt(nullptr, 16);
+	Y = data.at(2).toInt(nullptr, 16);
+	Z = data.at(3).toInt(nullptr, 16);
 
 	this->data_map[key].append(timestamp, X, Y, Z);
 
