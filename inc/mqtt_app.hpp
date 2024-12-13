@@ -31,10 +31,12 @@ Q_SIGNALS:
 	void dataReceived(const QByteArray& message, const QMqttTopicName& topic);
 
 private slots:
+	void onConnected();
 	void onMessage(const QByteArray& message, const QMqttTopicName& topic);
 
 private:
 	QMqttClient* client;
+	QMqttSubscription* subscription;
 };
 
 #endif // _MQTT_APP_HPP

@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QHostAddress>
 #include <QThread>
+#include <qdebug.h>
 
 
 const char connection_search[] = "search";
@@ -40,6 +41,8 @@ void UServer::start() {
 			return;
 		}
 	}
+
+	qDebug() << "[MQTT] Starting broker";
 
 	StartBroker();
 
