@@ -36,7 +36,7 @@ private:
 
 	MqttApp* mqtt;
 
-	QMap<QString, DataContainer> data_map;
+	QMap<QString, DataContainer*> data_map;
 
 private slots:
 	void updateMQTTStatus(QMqttClient::ClientState state);

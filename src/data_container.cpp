@@ -1,5 +1,6 @@
 #include "data_container.hpp"
 
+#include <QDebug>
 #include <stdexcept>
 
 DataContainer::DataContainer(int capacity)
@@ -19,11 +20,16 @@ DataContainer::~DataContainer() {
 }
 
 void DataContainer::append(time_t timestamp, int16_t X, int16_t Y, int16_t Z) {
-	timestamps[tail] = timestamp;
+	qDebug() << "Appending data: " << timestamp << " " << X << " " << Y << " " << Z;
+	qDebug() << "Head: " << head << " Tail: " << tail;
+	this->timestamps[tail] = timestamp;
 	this->data_X[tail] = X;
 	this->data_Y[tail] = Y;
 	this->data_Z[tail] = Z;
 	tail = (tail + 1) % _capacity;
+	if (tail == head) {
+		head = (head + 1) % _capacity;
+	}
 }
 
 void DataContainer::clear() { head = tail = 0; }
@@ -34,6 +40,7 @@ int DataContainer::capacity() const { return _capacity; }
 
 std::pair<time_t, std::tuple<int16_t, int16_t, int16_t>> DataContainer::at(int index) const {
 	if (index < 0 || index >= this->size()) {
+		qDebug() << "Index out of range";
 		throw std::out_of_range("Index out of range");
 	}
 
@@ -63,6 +70,9 @@ DataContainer::iterator DataContainer::iterator::operator++(int) {
 }
 
 std::pair<time_t, std::tuple<int16_t, int16_t, int16_t>> DataContainer::iterator::operator*() const {
+	qDebug() << "index: " << index << " head: " << container->head << " tail: " << container->tail;
+	qDebug() << "timestamps: " << container->timestamps[index] << " data: " << container->data_X[index] << " "
+			 << container->data_Y[index] << " " << container->data_Z[index];
 	return std::make_pair(
 		container->timestamps[index],
 		std::make_tuple(container->data_X[index], container->data_Y[index], container->data_Z[index]));

@@ -9,6 +9,18 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# add -g flag for debug
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -g")
+set(CMAKE_CFLAGS_DEBUG "${CMAKE_CFLAGS_DEBUG} -g")
+set(CMAKE_CFLAGS_RELEASE "${CMAKE_CFLAGS_RELEASE} -g")
+set(CMAKE_LFLAGS_RELEASE "${CMAKE_LFLAGS_RELEASE} -mthreads -Wl")
+
+# QMAKE_CXXFLAGS += -fexceptions
+# QMAKE_LFLAGS_EXCEPTIONS = -Wl,-enable-stdcall-fixup
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-enable-stdcall-fixup")
+
 # set output directory to bin
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 
@@ -75,6 +87,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Mqtt)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE broker)
 
+# link dbghelp.lib for stack trace
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE dbghelp.lib)
+endif()
+
 set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -101,3 +118,6 @@ endif()
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/images $<TARGET_FILE_DIR:${PROJECT_NAME}>/images)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND tar -acvf ${PROJECT_NAME}.zip -C ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ *.*)

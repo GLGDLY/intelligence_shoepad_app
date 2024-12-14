@@ -4,6 +4,7 @@
 #include <Qtmqtt/QMqttMessage>
 
 MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this)) {
+	client->setCleanSession(false);
 	client->setHostname("localhost");
 	client->setPort(1883);
 	client->setClientId("intelligence_shoepad_app");
@@ -12,6 +13,9 @@ MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this
 
 	connect(client, &QMqttClient::connected, this, &MqttApp::onConnected);
 	connect(client, &QMqttClient::messageReceived, this, &MqttApp::onMessage);
+	connect(client, &QMqttClient::disconnected, this, [this]() { qDebug() << "[MQTT] disconnected"; });
+	connect(client, &QMqttClient::errorChanged, this,
+			[this](QMqttClient::ClientError error) { qDebug() << "[MQTT] error: " << error; });
 
 	client->connectToHost();
 }
@@ -22,19 +26,20 @@ void MqttApp::onConnected() {
 	qDebug() << "[MQTT] connected";
 	if (subscription) {
 		qDebug() << "[MQTT] Subscription already exists, deleting existing one";
-		try {
-			delete subscription;
-		} catch (...) {
-			qDebug() << "[MQTT] Failed to delete existing subscription";
-		}
+		// try {
+		// 	delete subscription;
+		// } catch (...) {
+		// 	qDebug() << "[MQTT] Failed to delete existing subscription";
+		// }
 		// return;
+	} else {
+		subscription = client->subscribe(QString("esp/#"), 0);
+		if (!subscription) {
+			qDebug() << "[MQTT] Failed to subscribe to esp/#";
+			return;
+		}
+		qDebug() << "[MQTT] Subscribed to esp/#";
 	}
-	subscription = client->subscribe(QString("esp/#"), 0);
-	if (!subscription) {
-		qDebug() << "[MQTT] Failed to subscribe to esp/#";
-		return;
-	}
-	qDebug() << "[MQTT] Subscribed to esp/#";
 }
 
 // esp/%s/status
