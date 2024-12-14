@@ -32,17 +32,8 @@ void log_file_handler(QtMsgType type, const QMessageLogContext& context, const Q
 LONG crash_handler(PEXCEPTION_POINTERS pExceptionInfo) {
 	qCritical() << "Unhandled exception caught";
 	qCritical() << "Exception code: " << pExceptionInfo->ExceptionRecord->ExceptionCode;
-	// qCritical() << "Exception address: " << pExceptionInfo->ExceptionRecord->ExceptionAddress;
-	// qCritical() << "Exception flags: " << pExceptionInfo->ExceptionRecord->ExceptionFlags;
 	qCritical() << "Exception information: " << pExceptionInfo->ExceptionRecord->ExceptionInformation[0] << " "
 				<< pExceptionInfo->ExceptionRecord->ExceptionInformation[1];
-
-	// LPVOID buf;
-	// FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-	// nullptr, 			  pExceptionInfo->ExceptionRecord->ExceptionCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-	// (LPTSTR)&buf, 0, nullptr); qCritical() << "Exception message: " << (char*)buf;
-
-	// LocalFree(buf);
 
 	// get information on the exception address
 	HANDLE hProcess = GetCurrentProcess();
@@ -81,18 +72,6 @@ LONG crash_handler(PEXCEPTION_POINTERS pExceptionInfo) {
 		}
 		stack_depth++;
 	}
-
-	// get file, line no and function name
-	// IMAGEHLP_LINE64 line;
-	// DWORD displacement;
-	// SymSetOptions(SYMOPT_LOAD_LINES);
-	// line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
-	// if (SymGetLineFromAddr64(GetCurrentProcess(), (DWORD64)pExceptionInfo->ExceptionRecord->ExceptionAddress,
-	// 						 &displacement, &line)) {
-	// 	qCritical() << "File: " << line.FileName << " Line: " << line.LineNumber;
-	// } else {
-	// 	qCritical() << "Failed to get file and line number";
-	// }
 
 	return EXCEPTION_EXECUTE_HANDLER;
 }

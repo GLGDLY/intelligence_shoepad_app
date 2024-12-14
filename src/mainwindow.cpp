@@ -178,7 +178,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	qDebug() << "Received data from device: " << key;
 	qDebug() << "data_map contains? " << this->data_map.contains(key);
 
-	time_t timestamp = QDateTime::currentSecsSinceEpoch();
+	qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
 	QList<QByteArray> data = message.split(',');
 	if (data.size() != 4) {
 		qDebug() << "Invalid data size";
@@ -274,7 +274,7 @@ void MainWindow::reloadChart() {
 	qDebug() << series[0]->points().size() << " " << series[1]->points().size() << " " << series[2]->points().size();
 }
 
-void MainWindow::addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z) {
+void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
 	qDebug() << "Adding data to chart: " << timestamp << " " << X << " " << Y << " " << Z;
 
 	series[0]->append(timestamp, X);
