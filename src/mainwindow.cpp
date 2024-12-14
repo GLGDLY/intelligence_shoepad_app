@@ -175,8 +175,8 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	bool need_update_index = this->data_map.isEmpty();
 
 	QString key = topic.levels().at(1) + QString("_") + topic.levels().at(3);
-	qDebug() << "Received data from device: " << key;
-	qDebug() << "data_map contains? " << this->data_map.contains(key);
+	// qDebug() << "Received data from device: " << key;
+	// qDebug() << "data_map contains? " << this->data_map.contains(key);
 
 	qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
 	QList<QByteArray> data = message.split(',');
@@ -217,7 +217,7 @@ void MainWindow::updateChartSelect(int index) {
 	QString key = this->comboBox->itemText(index);
 	qDebug() << "Selected device: " << key;
 	DataContainer* data = this->data_map[key];
-	qDebug() << "Data size: " << data->size();
+	// qDebug() << "Data size: " << data->size();
 	series[0]->clear();
 	series[1]->clear();
 	series[2]->clear();
@@ -228,12 +228,12 @@ void MainWindow::updateChartSelect(int index) {
 		series[1]->append(timestamp, std::get<1>(value));
 		series[2]->append(timestamp, std::get<2>(value));
 	}
-	for (auto s : series) {
-		qDebug() << "Series size: " << s->points().size();
-		if (s->points().size() == 1) {
-			series[0]->append(series[0]->points().first().x(), series[0]->points().first().y());
-		}
-	}
+	// for (auto s : series) {
+	// 	// qDebug() << "Series size: " << s->points().size();
+	// 	if (s->points().size() == 1) {
+	// 		series[0]->append(series[0]->points().first().x(), series[0]->points().first().y());
+	// 	}
+	// }
 
 	qDebug() << "Data appended, reloading chart";
 
@@ -247,7 +247,7 @@ void MainWindow::reloadChart() {
 		qDebug() << "i: " << i << " series size: " << series[i]->points().size();
 		qreal minX, maxX, minY, maxY;
 		for (const QPointF& point : series[i]->points()) {
-			qDebug() << "point: " << point.x() << " " << point.y();
+			// qDebug() << "point: " << point.x() << " " << point.y();
 			if (point == series[i]->points().first()) {
 				minX = maxX = point.x();
 				minY = maxY = point.y();
@@ -258,7 +258,7 @@ void MainWindow::reloadChart() {
 				maxY = qMax(maxY, point.y());
 			}
 		}
-		qDebug() << "minX: " << minX << " maxX: " << maxX << " minY: " << minY << " maxY: " << maxY;
+		// qDebug() << "minX: " << minX << " maxX: " << maxX << " minY: " << minY << " maxY: " << maxY;
 		chart_range_y[i] = std::make_tuple(minY, maxY);
 
 		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
@@ -300,5 +300,8 @@ void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z)
 
 		chart[i]->update();
 		chartView[i]->update();
+		qDebug() << "Chart " << i << " appended to size: " << series[i]->points().size();
+		qDebug() << "x range: " << minX << " " << maxX;
+		qDebug() << "y range: " << minY << " " << maxY;
 	}
 }
