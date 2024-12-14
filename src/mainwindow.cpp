@@ -19,7 +19,10 @@ MainWindow::MainWindow(QWidget* parent)
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QSplineSeries(), new QSplineSeries(), new QSplineSeries()}
-	, mqtt_status(new QLabel())
+	, mqtt_state_label(new QLabel())
+	, mqtt_state(QMqttClient::ClientState::Disconnected)
+	, mqtt_last_received(0)
+	, mqtt_last_received_timer(new QTimer())
 	, mqtt(new MqttApp()) {
 	ui->setupUi(this);
 
@@ -118,19 +121,23 @@ MainWindow::MainWindow(QWidget* parent)
 	effect->setBlurRadius(5);
 	effect->setOffset(2, 2);
 	effect->setColor(QColor(0, 0, 0, 255 * 0.1));
-	mqtt_status->setGraphicsEffect(effect);
+	mqtt_state_label->setGraphicsEffect(effect);
 
-	mqtt_status->setText("MQTT: Disconnected");
-	mqtt_status->setAlignment(Qt::AlignCenter);
-	mqtt_status->setTextFormat(Qt::TextFormat::RichText);
-	mqtt_status->setFont(QFont("Calibri", 11, QFont::Medium));
-	mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
-	mqtt_status->setGeometry(10, this->height() - 25 - 10, 220, 25);
-	this->layout()->addWidget(mqtt_status);
+	mqtt_state_label->setText("MQTT: Disconnected");
+	mqtt_state_label->setAlignment(Qt::AlignCenter);
+	mqtt_state_label->setTextFormat(Qt::TextFormat::RichText);
+	mqtt_state_label->setFont(QFont("Calibri", 11, QFont::Medium));
+	mqtt_state_label->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+	mqtt_state_label->setGeometry(10, this->height() - 25 - 10, 220, 25);
+	this->layout()->addWidget(mqtt_state_label);
 
 	// mqtt
 	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
 	connect(mqtt, &MqttApp::dataReceived, this, &MainWindow::updateData);
+
+	// mqtt timer
+	connect(mqtt_last_received_timer, &QTimer::timeout, this, &MainWindow::updateMQTTLastReceived);
+	mqtt_last_received_timer->start(1000);
 }
 
 MainWindow::~MainWindow() {
@@ -141,28 +148,41 @@ MainWindow::~MainWindow() {
 		delete series[i];
 	}
 	delete comboBox;
-	delete mqtt_status;
+	delete mqtt_state_label;
 	delete mqtt;
 	for (auto value : this->data_map.values()) {
 		delete value;
 	}
 }
 
+void MainWindow::updateMQTTLastReceived() {
+	if (this->mqtt_state == QMqttClient::ClientState::Connected) {
+		QString text = "MQTT: Connected(%1)";
+		text = text.arg((QDateTime::currentMSecsSinceEpoch() - this->mqtt_last_received) / 1000);
+		mqtt_state_label->setText(text);
+	}
+}
+
 void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
+	this->mqtt_state = state;
 	switch (state) {
 		case QMqttClient::ClientState::Disconnected: {
-			mqtt_status->setText("MQTT: Disconnected");
-			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			mqtt_state_label->setText("MQTT: Disconnected");
+			mqtt_state_label->setStyleSheet(
+				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
 		case QMqttClient::ClientState::Connecting: {
-			mqtt_status->setText("MQTT: Connecting");
-			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			mqtt_state_label->setText("MQTT: Connecting");
+			mqtt_state_label->setStyleSheet(
+				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
 		case QMqttClient::ClientState::Connected: {
-			mqtt_status->setText("MQTT: Connected");
-			mqtt_status->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+			this->mqtt_last_received = QDateTime::currentMSecsSinceEpoch();
+			mqtt_state_label->setText("MQTT: Connected(0)");
+			mqtt_state_label->setStyleSheet(
+				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
 			break;
 		}
 		default: break;
@@ -179,6 +199,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	// qDebug() << "data_map contains? " << this->data_map.contains(key);
 
 	qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+	this->mqtt_last_received = timestamp;
 	QList<QByteArray> data = message.split(',');
 	if (data.size() != 4) {
 		qDebug() << "Invalid data size";

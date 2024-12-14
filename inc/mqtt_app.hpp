@@ -6,13 +6,13 @@
 #include <Qtmqtt/QMqttClient>
 #include <qobjectdefs.h>
 
-#define ESP_MQTT_STATUS_TABLE(X) \
-	X(STATUS_OFFLINE)            \
+#define ESP_mqtt_state_label_TABLE(X) \
+	X(STATUS_OFFLINE)                 \
 	X(STATUS_ONLINE)
 
 typedef enum {
-	ESP_MQTT_STATUS_TABLE(X_EXPAND_ENUM) NUM_OF_ESP_MQTT_STATUS,
-} esp_mqtt_status_t;
+	ESP_mqtt_state_label_TABLE(X_EXPAND_ENUM) NUM_OF_ESP_mqtt_state_label,
+} esp_mqtt_state_label_t;
 
 class MqttApp : public QObject {
 	Q_OBJECT

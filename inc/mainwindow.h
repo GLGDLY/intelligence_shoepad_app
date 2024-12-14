@@ -7,6 +7,7 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QMainWindow>
+#include <QTimer>
 #include <QtCharts/QChartView>
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
@@ -32,13 +33,18 @@ private:
 	QChart* chart[3];
 	QSplineSeries* series[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
-	QLabel* mqtt_status;
+	QLabel* mqtt_state_label;
+	QMqttClient::ClientState mqtt_state;
+	qint64 mqtt_last_received;
+	QTimer* mqtt_last_received_timer;
 
 	MqttApp* mqtt;
 
 	QMap<QString, DataContainer*> data_map;
 
 private slots:
+	void updateMQTTLastReceived();
+
 	void updateMQTTStatus(QMqttClient::ClientState state);
 	void updateData(const QByteArray& message, const QMqttTopicName& topic);
 
