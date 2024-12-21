@@ -3,13 +3,14 @@
 #include "./ui_mainwindow.h"
 
 #include <QGraphicsEffect>
+#include <QLineEdit>
 #include <QPixmap>
+#include <QPushButton>
 #include <QStyleFactory>
 #include <QVBoxLayout>
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
-#include <qabstractitemmodel.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -23,7 +24,11 @@ MainWindow::MainWindow(QWidget* parent)
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
 	, mqtt_last_received(0)
 	, mqtt_last_received_timer(new QTimer())
-	, mqtt(new MqttApp()) {
+	, mqtt(new MqttApp())
+	, x_input(new QLineEdit())
+	, y_input(new QLineEdit())
+	, xy_save_button(new QPushButton("Save"))
+	, settings(new Settings()) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -33,27 +38,11 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// graphicsView
 	this->ui->graphicsView->setStyleSheet("QGraphicsView { border: 0px solid #000; }");
-	auto img = QPixmap("images/insole.jpg");
-	img = img.scaled(this->ui->graphicsView->size(), Qt::KeepAspectRatio);
-
-	// set image to rounded corners
-	QBitmap mask(img.size());
-	QPainter painter(&mask);
-	painter.setRenderHint(QPainter::Antialiasing);
-	painter.fillRect(img.rect(), Qt::white);
-	painter.setBrush(Qt::black);
-	painter.drawRoundedRect(img.rect(), 10, 10);
-	painter.end();
-	img.setMask(mask);
-
-	// set image to graphicsView
-	this->ui->graphicsView->setScene(new QGraphicsScene(this));
-	this->ui->graphicsView->scene()->addPixmap(img);
+	this->graphicsManager = new GraphicsManager(this->ui->graphicsView);
 
 	// comboBox
 	comboBox->setInsertPolicy(QComboBox::InsertAtBottom);
 	comboBox->setStyle(QStyleFactory::create("Fusion"));
-	// comboBox->addItems({"1", "2", "3"});
 	connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::updateChartSelect);
 	// add to mainwindow on (450, 0)
 	comboBox->setGeometry(450 + 10, 10, this->width() - 450 - 20, 25);
@@ -116,6 +105,25 @@ MainWindow::MainWindow(QWidget* parent)
 	}
 	this->reloadChart();
 
+	// xy input box
+	QString x_placeholder = "X: 0-%1";
+	QString y_placeholder = "Y: 0-%1";
+	x_input->setPlaceholderText(x_placeholder.arg(this->graphicsManager->width()));
+	x_input->setGeometry(10, 10, 100, 25);
+	x_input->setStyleSheet("QLineEdit { background-color:rgb(202, 202, 202); color: #000; }");
+	this->layout()->addWidget(x_input);
+
+	y_input->setPlaceholderText(y_placeholder.arg(this->graphicsManager->height()));
+	y_input->setGeometry(110, 10, 100, 25);
+	y_input->setStyleSheet("QLineEdit { background-color: rgb(202, 202, 202); color: #000; }");
+	this->layout()->addWidget(y_input);
+
+	// xy save button
+	xy_save_button->setGeometry(210, 10, 50, 25);
+	xy_save_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
+	this->layout()->addWidget(xy_save_button);
+	connect(xy_save_button, &QPushButton::clicked, this, &MainWindow::xySaveButtonClicked);
+
 	// mqtt status bar
 	QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect();
 	effect->setBlurRadius(5);
@@ -153,9 +161,18 @@ MainWindow::~MainWindow() {
 	for (auto value : this->data_map.values()) {
 		delete value;
 	}
+	if (this->graphicsManager) {
+		delete this->graphicsManager;
+	}
 }
 
 void MainWindow::updateMQTTLastReceived() {
+	// static bool do_once = true;
+	// if (do_once) {
+	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	do_once = false;
+	// }
+
 	if (this->mqtt_state == QMqttClient::ClientState::Connected) {
 		QString text = "MQTT: Connected(%1)";
 		text = text.arg((QDateTime::currentMSecsSinceEpoch() - this->mqtt_last_received) / 1000);
@@ -217,6 +234,14 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 
 		this->comboBox->addItem(key);
 		this->comboBox->model()->sort(0);
+
+		if (this->settings->contains(key)) {
+			auto vars = this->settings->get(key).toArray();
+			this->graphicsManager->addSphereArrow(key, vars.at(0).toInt(), vars.at(1).toInt(), X, Y);
+		} else {
+			this->graphicsManager->addSphereArrow(key, 0, 0, 0, 0);
+		}
+
 		qDebug() << "new device added: " << key;
 	} else {
 		this->data_map[key]->append(timestamp, X, Y, Z);
@@ -224,6 +249,10 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 			this->addChartData(timestamp, X, Y, Z);
 		}
 	}
+
+	const qreal scale = 600;
+	this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
+	this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
 }
 
 void MainWindow::updateChartSelect(int index) {
@@ -325,4 +354,25 @@ void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z)
 		qDebug() << "x range: " << minX << " " << maxX;
 		qDebug() << "y range: " << minY << " " << maxY;
 	}
+}
+
+void MainWindow::xySaveButtonClicked() {
+	qDebug() << "Save button clicked";
+	bool ok;
+	int x = x_input->text().toInt(&ok);
+	if (!ok) {
+		qDebug() << "Invalid X input";
+		return;
+	}
+	int y = y_input->text().toInt(&ok);
+	if (!ok) {
+		qDebug() << "Invalid Y input";
+		return;
+	}
+	auto key = this->comboBox->currentText();
+	this->graphicsManager->setSpherePos(key, fmin(fmax(x, 0), this->graphicsManager->width()),
+										fmin(fmax(y, 0), this->graphicsManager->height()));
+	QJsonArray arr = {x, y};
+	this->settings->set(key, arr);
+	this->settings->save();
 }

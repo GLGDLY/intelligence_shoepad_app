@@ -1,8 +1,10 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef _MAINWINDOW_H
+#define _MAINWINDOW_H
 
 #include "data_container.hpp"
+#include "graphicsview.hpp"
 #include "mqtt_app.hpp"
+#include "settings_io.hpp"
 
 #include <QComboBox>
 #include <QLabel>
@@ -11,6 +13,7 @@
 #include <QtCharts/QChartView>
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
+#include <qdialog.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -42,6 +45,12 @@ private:
 
 	QMap<QString, DataContainer*> data_map;
 
+	GraphicsManager* graphicsManager;
+	QLineEdit *x_input, *y_input;
+	QPushButton* xy_save_button;
+
+	Settings* settings;
+
 private slots:
 	void updateMQTTLastReceived();
 
@@ -51,5 +60,7 @@ private slots:
 	void updateChartSelect(int index);
 	void reloadChart();
 	void addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z);
+
+	void xySaveButtonClicked();
 };
-#endif // MAINWINDOW_H
+#endif // _MAINWINDOW_H
