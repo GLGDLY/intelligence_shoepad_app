@@ -11,6 +11,7 @@
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
+#include <qvalueaxis.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -28,6 +29,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, x_input(new QLineEdit())
 	, y_input(new QLineEdit())
 	, xy_save_button(new QPushButton("Save"))
+	, sensor_recalibration_button(new QPushButton("Recalibrate"))
+	, data_clear_flags()
 	, settings(new Settings()) {
 	ui->setupUi(this);
 
@@ -69,30 +72,34 @@ MainWindow::MainWindow(QWidget* parent)
 		chart[i]->addSeries(series[i]);
 		chart[i]->createDefaultAxes();
 
-		chart[i]->axes(Qt::Horizontal).back()->setTitleText("Time");
-		chart[i]->axes(Qt::Horizontal).back()->setTitleFont(QFont("Arial", 10));
-		chart[i]->axes(Qt::Horizontal).back()->setMinorGridLineVisible(false);
-		chart[i]->axes(Qt::Horizontal).back()->setGridLineVisible(false);
+		QValueAxis* axisX = (QValueAxis*)chart[i]->axes(Qt::Horizontal).back();
+		axisX->setTitleText("Time");
+		axisX->setTitleFont(QFont("Arial", 10));
+		axisX->setMinorGridLineVisible(false);
+		axisX->setGridLineVisible(false);
+		axisX->setLabelFormat("%d");
 
-		chart[i]->axes(Qt::Vertical).back()->setTitleFont(QFont("Arial", 10));
-		chart[i]->axes(Qt::Vertical).back()->setMinorGridLineVisible(false);
-		chart[i]->axes(Qt::Vertical).back()->setGridLineVisible(false);
+		QValueAxis* axisY = (QValueAxis*)chart[i]->axes(Qt::Vertical).back();
+		axisY->setTitleFont(QFont("Arial", 10));
+		axisY->setMinorGridLineVisible(false);
+		axisY->setGridLineVisible(false);
+		axisY->setLabelFormat("%d");
 
-		chart[i]->addAxis(chart[i]->axes(Qt::Horizontal).back(), Qt::AlignBottom);
-		chart[i]->addAxis(chart[i]->axes(Qt::Vertical).back(), Qt::AlignLeft);
+		chart[i]->addAxis(axisX, Qt::AlignBottom);
+		chart[i]->addAxis(axisY, Qt::AlignLeft);
 
 		switch (i) {
 			case 0:
 				series[i]->setColor(Qt::red);
-				chart[i]->axes(Qt::Vertical).back()->setTitleText("Value X");
+				axisY->setTitleText("Value X");
 				break;
 			case 1:
 				series[i]->setColor(Qt::green);
-				chart[i]->axes(Qt::Vertical).back()->setTitleText("Value Y");
+				axisY->setTitleText("Value Y");
 				break;
 			case 2:
 				series[i]->setColor(Qt::blue);
-				chart[i]->axes(Qt::Vertical).back()->setTitleText("Value Z");
+				axisY->setTitleText("Value Z");
 				break;
 			default: break;
 		}
@@ -124,6 +131,12 @@ MainWindow::MainWindow(QWidget* parent)
 	this->layout()->addWidget(xy_save_button);
 	connect(xy_save_button, &QPushButton::clicked, this, &MainWindow::xySaveButtonClicked);
 
+	// sensor recalibration button
+	sensor_recalibration_button->setGeometry(270, 10, 100, 25);
+	sensor_recalibration_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
+	this->layout()->addWidget(sensor_recalibration_button);
+	connect(sensor_recalibration_button, &QPushButton::clicked, this, &MainWindow::sensorRecalibrationButtonClicked);
+
 	// mqtt status bar
 	QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect();
 	effect->setBlurRadius(5);
@@ -142,6 +155,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// mqtt
 	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
 	connect(mqtt, &MqttApp::dataReceived, this, &MainWindow::updateData);
+	connect(mqtt, &MqttApp::calEndReceived, this, &MainWindow::updateCalEndStatus);
 
 	// mqtt timer
 	connect(mqtt_last_received_timer, &QTimer::timeout, this, &MainWindow::updateMQTTLastReceived);
@@ -167,11 +181,17 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::updateMQTTLastReceived() {
+	/* Testing */
 	// static bool do_once = true;
 	// if (do_once) {
 	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateCalEndStatus("test_esp", "0");
+	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	do_once = false;
 	// }
+	/* Testing */
 
 	if (this->mqtt_state == QMqttClient::ClientState::Connected) {
 		QString text = "MQTT: Connected(%1)";
@@ -228,6 +248,14 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	Y = data.at(2).toInt();
 	Z = data.at(3).toInt();
 
+	bool need_reload_chart = false;
+	if (this->data_clear_flags.contains(key)) {
+		qDebug() << "Cal end, clearing data for device: " << key;
+		this->data_map[key]->clear();
+		this->data_clear_flags.remove(key);
+		need_reload_chart = this->comboBox->currentText() == key;
+	}
+
 	if (!this->data_map.contains(key)) {
 		this->data_map.insert(key, new DataContainer(1000));
 		this->data_map[key]->append(timestamp, X, Y, Z);
@@ -250,9 +278,21 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 		}
 	}
 
+	if (need_reload_chart) {
+		qDebug() << "Reloading chart due to recalibration";
+		this->updateChartSelect(this->comboBox->currentIndex());
+	}
+
 	const qreal scale = 600;
 	this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
 	this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
+}
+
+void MainWindow::updateCalEndStatus(const QString esp_id, const QString sensor_id) {
+	qDebug() << "Calibration end received: " << esp_id << "::" << sensor_id;
+
+	// set data clear flag
+	this->data_clear_flags.insert(esp_id + QString("_") + sensor_id);
 }
 
 void MainWindow::updateChartSelect(int index) {
@@ -274,9 +314,9 @@ void MainWindow::updateChartSelect(int index) {
 	qDebug() << "Series cleared";
 
 	for (auto [timestamp, value] : *data) {
-		series[0]->append(timestamp, std::get<0>(value));
-		series[1]->append(timestamp, std::get<1>(value));
-		series[2]->append(timestamp, std::get<2>(value));
+		series[0]->append(timestamp - this->start_time, std::get<0>(value));
+		series[1]->append(timestamp - this->start_time, std::get<1>(value));
+		series[2]->append(timestamp - this->start_time, std::get<2>(value));
 	}
 	// for (auto s : series) {
 	// 	// qDebug() << "Series size: " << s->points().size();
@@ -309,6 +349,13 @@ void MainWindow::reloadChart() {
 			}
 		}
 		// qDebug() << "minX: " << minX << " maxX: " << maxX << " minY: " << minY << " maxY: " << maxY;
+		if (abs(maxX - minX) < 1) {
+			maxX += 1;
+		}
+		if (abs(maxY - minY) < 1) {
+			maxY += 1;
+		}
+
 		chart_range_y[i] = std::make_tuple(minY, maxY);
 
 		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
@@ -325,6 +372,7 @@ void MainWindow::reloadChart() {
 }
 
 void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
+	timestamp -= this->start_time;
 	qDebug() << "Adding data to chart: " << timestamp << " " << X << " " << Y << " " << Z;
 
 	series[0]->append(timestamp, X);
@@ -375,4 +423,41 @@ void MainWindow::xySaveButtonClicked() {
 	QJsonArray arr = {x, y};
 	this->settings->set(key, arr);
 	this->settings->save();
+}
+
+void MainWindow::sensorRecalibrationButtonClicked() {
+	qDebug() << "Recalibration button clicked";
+
+	// mqtt publish to app/cal/{esp_id}/{sensor_id}
+
+	// construct topic
+	auto args = this->comboBox->currentText().split('_');
+	if (args.size() < 2) {
+		qDebug() << "Invalid device name";
+		return;
+	}
+	QString esp_id = "";
+	for (int i = 0; i < args.size() - 1; i++) {
+		esp_id += args.at(i);
+		if (i != args.size() - 2) {
+			esp_id += "_";
+		}
+	}
+	QString topic = "app/cal/%1/%2";
+	topic = topic.arg(esp_id).arg(args.last());
+
+	// publish
+	this->mqtt->publish(QByteArray(), QMqttTopicName(topic));
+
+	// popout dialog
+	QDialog dialog;
+	QVBoxLayout layout(&dialog);
+	QLabel label("Recalibration request sent");
+	QPushButton button("OK");
+	layout.addWidget(&label);
+	layout.addWidget(&button);
+	dialog.setLayout(&layout);
+	dialog.exec();
+
+	// current data will be cleared when calEndReceived signal is received
 }

@@ -22,6 +22,8 @@ MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this
 
 MqttApp::~MqttApp() { delete client; }
 
+void MqttApp::publish(const QByteArray& message, const QMqttTopicName& topic) { client->publish(topic, message, 1); }
+
 void MqttApp::onConnected() {
 	qDebug() << "[MQTT] connected";
 	if (subscription) {
@@ -44,6 +46,7 @@ void MqttApp::onConnected() {
 
 // esp/%s/status
 // esp/%s/d/%d
+// esp/%s/cal/%d
 void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) {
 	qDebug() << "[MQTT] Received message: " << message << " from topic: " << topic.name();
 	if (topic.levelCount() < 3) {
@@ -77,6 +80,9 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 	} else if (topic.levels().at(2).compare("d") == 0) {
 		qDebug() << "[MQTT] Data update: " << message;
 		emit dataReceived(message, topic);
+	} else if (topic.levels().at(2).compare("cal") == 0) {
+		qDebug() << "[MQTT] Calibration end: " << message;
+		emit calEndReceived(topic.levels().at(1), topic.levels().at(3));
 	} else {
 		qDebug() << "[MQTT] Invalid topic level 2: " << topic.levels().at(2);
 	}

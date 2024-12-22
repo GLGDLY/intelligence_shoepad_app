@@ -47,20 +47,26 @@ private:
 
 	GraphicsManager* graphicsManager;
 	QLineEdit *x_input, *y_input;
-	QPushButton* xy_save_button;
+	QPushButton *xy_save_button, *sensor_recalibration_button;
+
+	QSet<QString> data_clear_flags;
 
 	Settings* settings;
+
+	const qint64 start_time = QDateTime::currentMSecsSinceEpoch();
 
 private slots:
 	void updateMQTTLastReceived();
 
 	void updateMQTTStatus(QMqttClient::ClientState state);
 	void updateData(const QByteArray& message, const QMqttTopicName& topic);
+	void updateCalEndStatus(const QString esp_id, const QString sensor_id);
 
 	void updateChartSelect(int index);
 	void reloadChart();
 	void addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z);
 
 	void xySaveButtonClicked();
+	void sensorRecalibrationButtonClicked();
 };
 #endif // _MAINWINDOW_H

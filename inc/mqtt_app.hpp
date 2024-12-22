@@ -27,8 +27,11 @@ public:
 		connect(client, signal, context, slot);
 	}
 
+	void publish(const QByteArray& message, const QMqttTopicName& topic);
+
 Q_SIGNALS:
 	void dataReceived(const QByteArray& message, const QMqttTopicName& topic);
+	void calEndReceived(const QString esp_id, const QString sensor_id);
 
 private slots:
 	void onConnected();
