@@ -2,6 +2,7 @@
 #define _MAINWINDOW_H
 
 #include "data_container.hpp"
+#include "data_recorder.hpp"
 #include "graphicsview.hpp"
 #include "mqtt_app.hpp"
 #include "settings_io.hpp"
@@ -36,7 +37,7 @@ private:
 	QChart* chart[3];
 	QSplineSeries* series[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
-	QLabel* mqtt_state_label;
+	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
 	qint64 mqtt_last_received;
 	QTimer* mqtt_last_received_timer;
@@ -55,11 +56,14 @@ private:
 
 	const qint64 start_time = QDateTime::currentMSecsSinceEpoch();
 
+	DataRecorder recorder;
+
 private slots:
 	void updateMQTTLastReceived();
 
 	void updateMQTTStatus(QMqttClient::ClientState state);
 	void updateData(const QByteArray& message, const QMqttTopicName& topic);
+	void processData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z);
 	void updateCalEndStatus(const QString esp_id, const QString sensor_id);
 
 	void updateChartSelect(int index);
@@ -68,5 +72,10 @@ private slots:
 
 	void xySaveButtonClicked();
 	void sensorRecalibrationButtonClicked();
+
+	// replay related
+	void mqttStateBtnClicked();
+	void startStopBtnClicked();
+	void replayFinished();
 };
 #endif // _MAINWINDOW_H

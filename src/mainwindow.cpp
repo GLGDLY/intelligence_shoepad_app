@@ -1,7 +1,10 @@
 #include "mainwindow.h"
 
 #include "./ui_mainwindow.h"
+#include "data_recorder.hpp"
+#include "infobox.hpp"
 
+#include <QFileDialog>
 #include <QGraphicsEffect>
 #include <QLineEdit>
 #include <QPixmap>
@@ -11,7 +14,6 @@
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
-#include <qvalueaxis.h>
 
 
 MainWindow::MainWindow(QWidget* parent)
@@ -21,7 +23,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QSplineSeries(), new QSplineSeries(), new QSplineSeries()}
-	, mqtt_state_label(new QLabel())
+	, mqtt_state_btn(new QPushButton())
+	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
 	, mqtt_last_received(0)
 	, mqtt_last_received_timer(new QTimer())
@@ -142,15 +145,22 @@ MainWindow::MainWindow(QWidget* parent)
 	effect->setBlurRadius(5);
 	effect->setOffset(2, 2);
 	effect->setColor(QColor(0, 0, 0, 255 * 0.1));
-	mqtt_state_label->setGraphicsEffect(effect);
+	mqtt_state_btn->setGraphicsEffect(effect);
+	mqtt_state_btn->setText("MQTT: Disconnected");
+	mqtt_state_btn->setFont(QFont("Calibri", 11, QFont::Medium));
+	mqtt_state_btn->setStyleSheet("QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+	mqtt_state_btn->setGeometry(10, this->height() - 25 - 10, 220, 30);
+	connect(mqtt_state_btn, &QPushButton::clicked, this, &MainWindow::mqttStateBtnClicked);
+	this->layout()->addWidget(mqtt_state_btn);
 
-	mqtt_state_label->setText("MQTT: Disconnected");
-	mqtt_state_label->setAlignment(Qt::AlignCenter);
-	mqtt_state_label->setTextFormat(Qt::TextFormat::RichText);
-	mqtt_state_label->setFont(QFont("Calibri", 11, QFont::Medium));
-	mqtt_state_label->setStyleSheet("QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
-	mqtt_state_label->setGeometry(10, this->height() - 25 - 10, 220, 25);
-	this->layout()->addWidget(mqtt_state_label);
+	// start_stop_btn
+	start_stop_btn->setGraphicsEffect(effect);
+	start_stop_btn->setText("Start record");
+	start_stop_btn->setFont(QFont("Calibri", 11, QFont::Medium));
+	start_stop_btn->setStyleSheet("QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+	start_stop_btn->setGeometry(240, this->height() - 25 - 10, 100, 30);
+	connect(start_stop_btn, &QPushButton::clicked, this, &MainWindow::startStopBtnClicked);
+	this->layout()->addWidget(start_stop_btn);
 
 	// mqtt
 	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
@@ -160,6 +170,10 @@ MainWindow::MainWindow(QWidget* parent)
 	// mqtt timer
 	connect(mqtt_last_received_timer, &QTimer::timeout, this, &MainWindow::updateMQTTLastReceived);
 	mqtt_last_received_timer->start(1000);
+
+	// recorder
+	connect(&recorder, &DataRecorder::playbackData, this, &MainWindow::processData);
+	connect(&recorder, &DataRecorder::replayFinished, this, &MainWindow::replayFinished);
 }
 
 MainWindow::~MainWindow() {
@@ -170,7 +184,7 @@ MainWindow::~MainWindow() {
 		delete series[i];
 	}
 	delete comboBox;
-	delete mqtt_state_label;
+	delete mqtt_state_btn;
 	delete mqtt;
 	for (auto value : this->data_map.values()) {
 		delete value;
@@ -196,7 +210,7 @@ void MainWindow::updateMQTTLastReceived() {
 	if (this->mqtt_state == QMqttClient::ClientState::Connected) {
 		QString text = "MQTT: Connected(%1)";
 		text = text.arg((QDateTime::currentMSecsSinceEpoch() - this->mqtt_last_received) / 1000);
-		mqtt_state_label->setText(text);
+		mqtt_state_btn->setText(text);
 	}
 }
 
@@ -204,22 +218,22 @@ void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
 	this->mqtt_state = state;
 	switch (state) {
 		case QMqttClient::ClientState::Disconnected: {
-			mqtt_state_label->setText("MQTT: Disconnected");
-			mqtt_state_label->setStyleSheet(
-				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			mqtt_state_btn->setText("MQTT: Disconnected");
+			mqtt_state_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
 		case QMqttClient::ClientState::Connecting: {
-			mqtt_state_label->setText("MQTT: Connecting");
-			mqtt_state_label->setStyleSheet(
-				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			mqtt_state_btn->setText("MQTT: Connecting");
+			mqtt_state_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
 			break;
 		}
 		case QMqttClient::ClientState::Connected: {
 			this->mqtt_last_received = QDateTime::currentMSecsSinceEpoch();
-			mqtt_state_label->setText("MQTT: Connected(0)");
-			mqtt_state_label->setStyleSheet(
-				"QLabel { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+			mqtt_state_btn->setText("MQTT: Connected(0)");
+			mqtt_state_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
 			break;
 		}
 		default: break;
@@ -247,6 +261,13 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	X = data.at(1).toInt();
 	Y = data.at(2).toInt();
 	Z = data.at(3).toInt();
+
+	this->recorder.dataRecord(key, timestamp, T, X, Y, Z);
+	this->processData(key, timestamp, T, X, Y, Z);
+}
+
+void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z) {
+	qDebug() << "Processing data: " << key << " " << timestamp << " " << T << " " << X << " " << Y << " " << Z;
 
 	bool need_reload_chart = false;
 	if (this->data_clear_flags.contains(key)) {
@@ -450,14 +471,80 @@ void MainWindow::sensorRecalibrationButtonClicked() {
 	this->mqtt->publish(QByteArray(), QMqttTopicName(topic));
 
 	// popout dialog
-	QDialog dialog;
-	QVBoxLayout layout(&dialog);
-	QLabel label("Recalibration request sent");
-	QPushButton button("OK");
-	layout.addWidget(&label);
-	layout.addWidget(&button);
-	dialog.setLayout(&layout);
-	dialog.exec();
+	showInfoBox("Recalibration request sent");
 
 	// current data will be cleared when calEndReceived signal is received
+}
+
+/* replay related */
+void MainWindow::mqttStateBtnClicked() {
+	qDebug() << "MQTT state button clicked";
+	if (this->recorder.getState() != RecorderStateIdle) {
+		qDebug() << "Recorder state not idle, cannot start replay";
+		return;
+	}
+	// start replay
+	QDir dir = QDir::current();
+	if (dir.exists("recordings")) {
+		dir.cd("recordings");
+	}
+	QString path = QFileDialog::getOpenFileName(this, "Open recording file", dir.absolutePath(), "JSON files (*.json)");
+	if (path.isEmpty()) {
+		qDebug() << "No file selected";
+		return;
+	}
+	if (!this->recorder.startReplaying(path)) {
+		qDebug() << "Failed to start replay";
+	}
+	this->start_stop_btn->setText("Stop replay");
+	this->start_stop_btn->setStyleSheet(
+		"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+}
+
+void MainWindow::startStopBtnClicked() {
+	qDebug() << "Start/Stop button clicked";
+	switch (this->recorder.getState()) {
+		case RecorderStateIdle: {
+			// start recording
+			if (!this->recorder.startRecording()) {
+				qDebug() << "Failed to start recording";
+			}
+			this->start_stop_btn->setText("Stop record");
+			this->start_stop_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			break;
+		}
+		case RecorderStateRecording: {
+			// stop recording
+			if (!this->recorder.stopRecording()) {
+				qDebug() << "Failed to stop recording";
+			}
+			this->start_stop_btn->setText("Start record");
+			this->start_stop_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+			break;
+		}
+		case RecorderStateReplaying: {
+			// stop replaying
+			if (!this->recorder.stopReplaying()) {
+				qDebug() << "Failed to stop replaying";
+			}
+			this->start_stop_btn->setText("Start record");
+			this->start_stop_btn->setStyleSheet(
+				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+			break;
+		}
+		default: break;
+	}
+}
+
+void MainWindow::replayFinished() {
+	qDebug() << "replay finished sig recv";
+	if (this->recorder.getState() != RecorderStateReplaying) {
+		qDebug() << "Recorder state not replaying, no action needed";
+		return;
+	}
+	// this->start_stop_btn->setText("Stop replay");
+	this->start_stop_btn->setStyleSheet(
+		"QPushButton { border-radius: 5px; background-color: #a9a9a9; color:rgb(164, 134, 0); }");
 }
