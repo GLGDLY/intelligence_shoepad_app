@@ -34,7 +34,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, xy_save_button(new QPushButton("Save"))
 	, sensor_recalibration_button(new QPushButton("Recalibrate"))
 	, data_clear_flags()
-	, settings(new Settings()) {
+	, settings(new Settings())
+	, start_time(QDateTime::currentMSecsSinceEpoch()) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -173,6 +174,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// recorder
 	connect(&recorder, &DataRecorder::playbackData, this, &MainWindow::processData);
+	connect(&recorder, &DataRecorder::replayStarted, this, &MainWindow::clear);
 	connect(&recorder, &DataRecorder::replayFinished, this, &MainWindow::replayFinished);
 }
 
@@ -262,8 +264,10 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	Y = data.at(2).toInt();
 	Z = data.at(3).toInt();
 
-	this->recorder.dataRecord(key, timestamp, T, X, Y, Z);
-	this->processData(key, timestamp, T, X, Y, Z);
+	if (this->recorder.getState() != RecorderStateReplaying) {
+		this->recorder.dataRecord(key, timestamp, T, X, Y, Z);
+		this->processData(key, timestamp, T, X, Y, Z);
+	}
 }
 
 void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z) {
@@ -328,6 +332,10 @@ void MainWindow::updateChartSelect(int index) {
 	QString key = this->comboBox->itemText(index);
 	qDebug() << "Selected device: " << key;
 	DataContainer* data = this->data_map[key];
+	if (!data) {
+		qDebug() << "Data not found";
+		return;
+	}
 	// qDebug() << "Data size: " << data->size();
 	series[0]->clear();
 	series[1]->clear();
@@ -356,7 +364,7 @@ void MainWindow::reloadChart() {
 
 	for (int i = 0; i < 3; i++) {
 		qDebug() << "i: " << i << " series size: " << series[i]->points().size();
-		qreal minX, maxX, minY, maxY;
+		qreal minX = 0, maxX = 0, minY = 0, maxY = 0;
 		for (const QPointF& point : series[i]->points()) {
 			// qDebug() << "point: " << point.x() << " " << point.y();
 			if (point == series[i]->points().first()) {
@@ -495,6 +503,7 @@ void MainWindow::mqttStateBtnClicked() {
 	}
 	if (!this->recorder.startReplaying(path)) {
 		qDebug() << "Failed to start replay";
+		return;
 	}
 	this->start_stop_btn->setText("Stop replay");
 	this->start_stop_btn->setStyleSheet(
@@ -512,6 +521,7 @@ void MainWindow::startStopBtnClicked() {
 			this->start_stop_btn->setText("Stop record");
 			this->start_stop_btn->setStyleSheet(
 				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+			this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
 			break;
 		}
 		case RecorderStateRecording: {
@@ -532,6 +542,7 @@ void MainWindow::startStopBtnClicked() {
 			this->start_stop_btn->setText("Start record");
 			this->start_stop_btn->setStyleSheet(
 				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+			this->clear();
 			break;
 		}
 		default: break;
@@ -547,4 +558,16 @@ void MainWindow::replayFinished() {
 	// this->start_stop_btn->setText("Stop replay");
 	this->start_stop_btn->setStyleSheet(
 		"QPushButton { border-radius: 5px; background-color: #a9a9a9; color:rgb(164, 134, 0); }");
+}
+
+void MainWindow::clear() {
+	qDebug() << "Clearing data";
+	for (auto value : this->data_map.values()) {
+		delete value;
+	}
+	this->data_map.clear();
+	this->comboBox->clear();
+	this->graphicsManager->clear();
+	this->reloadChart();
+	this->start_time = QDateTime::currentMSecsSinceEpoch();
 }

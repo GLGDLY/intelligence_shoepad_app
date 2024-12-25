@@ -54,7 +54,7 @@ private:
 
 	Settings* settings;
 
-	const qint64 start_time = QDateTime::currentMSecsSinceEpoch();
+	qint64 start_time;
 
 	DataRecorder recorder;
 
@@ -77,5 +77,7 @@ private slots:
 	void mqttStateBtnClicked();
 	void startStopBtnClicked();
 	void replayFinished();
+
+	void clear();
 };
 #endif // _MAINWINDOW_H

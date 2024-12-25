@@ -33,6 +33,12 @@ public:
 
 Q_SIGNALS:
 	void processReplay();
+
+public slots:
+	void end();
+
+private:
+	bool reply_running = true;
 };
 
 class JsonArrIterator {
@@ -72,6 +78,7 @@ public:
 
 Q_SIGNALS:
 	void playbackData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z);
+	void replayStarted();
 	void replayStop();
 	void replayFinished();
 
@@ -87,7 +94,7 @@ private:
 	// for replay control
 	QDateTime replay_start_time, replay_data_start_time;
 	QList<JsonArrIterator*> replay_its;
-	bool replay_finished_do_once = false;
+	bool replay_started_do_once = false, replay_finished_do_once = false;
 };
 
 #endif // _DATA_RECORDER_HPP

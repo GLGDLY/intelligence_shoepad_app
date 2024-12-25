@@ -212,6 +212,16 @@ void GraphicsManager::setArrowPointingToScalar(QString name, qreal sca_x, qreal 
 	this->reload();
 }
 
+void GraphicsManager::clear() {
+	for (auto [sphere, arrow, color] : m_objects) {
+		delete sphere;
+		delete arrow;
+		delete color;
+	}
+	m_objects.clear();
+	this->reload();
+}
+
 void GraphicsManager::drawSphereArrow(Sphere* sphere, Arrow* arrow, QColor color) {
 	auto arrow_xyxy = arrow->getArrow();
 	m_canvas->drawArrow(std::get<0>(arrow_xyxy), std::get<1>(arrow_xyxy), std::get<2>(arrow_xyxy),

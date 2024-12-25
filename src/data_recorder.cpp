@@ -5,6 +5,8 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <qjsonarray.h>
+#include <qjsonobject.h>
 
 
 /*
@@ -27,11 +29,16 @@ DataReplayThread::~DataReplayThread() {}
 
 void DataReplayThread::run() {
 	qDebug() << "Replay thread started";
-	while (true) {
+	while (this->reply_running) {
 		emit processReplay();
 		QThread::usleep(1);
+		// QThread::sleep(1);
 	}
+	qDebug() << "Replay thread ended";
+	this->quit();
 }
+
+void DataReplayThread::end() { this->reply_running = false; }
 
 /* JsonObjIterator */
 JsonArrIterator::JsonArrIterator(QString key_, QJsonArray arr_) : key(key_), arr(arr_), index(0) {}
@@ -117,13 +124,24 @@ void DataRecorder::dataRecord(QString key, qint64 timestamp, int16_t T, int16_t 
 	if (state != RecorderStateRecording) {
 		return;
 	}
+	qDebug() << "data record called";
 	QJsonArray data = {timestamp, T, X, Y, Z};
 	if (!this->obj->contains(key)) {
-		this->obj->insert(key, QJsonArray());
+		QJsonArray arr;
+		this->obj->insert(key, arr);
 	}
-	this->obj->value(key).toArray().append(data);
+	QJsonValueRef arr_ref = (*this->obj)[key];
+	QJsonArray arr = arr_ref.toArray();
+	arr.append(data);
+	arr_ref = arr;
+	// QJsonDocument doc1(arr);
+	// qDebug() << "arr: " << doc1.toJson();
+
 
 	qDebug() << "Data recorded: " << key << " " << timestamp << " " << T << " " << X << " " << Y << " " << Z;
+
+	// QJsonDocument doc(*this->obj);
+	// qDebug() << "obj: " << doc.toJson();
 }
 
 bool DataRecorder::startReplaying(QString path) {
@@ -168,6 +186,11 @@ bool DataRecorder::startReplaying(QString path) {
 			showInfoBox("Invalid recording file: data not array");
 			return false;
 		}
+		if (new_obj.value(key).toArray().size() == 0) {
+			qWarning() << "Invalid recording file: data empty";
+			showInfoBox("Invalid recording file: data empty");
+			return false;
+		}
 		for (auto data : new_obj.value(key).toArray()) {
 			if (!data.isArray() || data.toArray().size() != 5) {
 				qWarning() << "Invalid recording file: data not array or size not 5";
@@ -188,6 +211,7 @@ bool DataRecorder::startReplaying(QString path) {
 	for (auto it : this->replay_its) {
 		delete it;
 	}
+	this->replay_its.clear();
 	if (this->obj) {
 		delete this->obj;
 	}
@@ -201,14 +225,16 @@ bool DataRecorder::startReplaying(QString path) {
 
 	this->replay_start_time = QDateTime::currentDateTime();
 	this->replay_data_start_time = QDateTime::fromMSecsSinceEpoch(this->obj->value("init_time").toInt());
+	this->replay_started_do_once = true;
 	this->replay_finished_do_once = true;
 
 	if (this->replay_thread) {
-		delete this->replay_thread;
+		emit replayStop();
+		this->replay_thread->deleteLater();
 	}
 	this->replay_thread = new DataReplayThread();
 	connect(this->replay_thread, &DataReplayThread::processReplay, this, &DataRecorder::replayData);
-	connect(this, &DataRecorder::replayStop, this->replay_thread, &DataReplayThread::quit);
+	connect(this, &DataRecorder::replayStop, this->replay_thread, &DataReplayThread::end);
 	connect(this->replay_thread, &DataReplayThread::finished, this, &DataRecorder::deleteReplayThread);
 	this->replay_thread->start();
 
@@ -233,17 +259,25 @@ void DataRecorder::replayData() {
 	if (state != RecorderStateReplaying) {
 		return;
 	}
+	if (this->replay_started_do_once) {
+		emit replayStarted();
+		this->replay_started_do_once = false;
+	}
 
 	const qint64 time_elapsed = this->replay_start_time.msecsTo(QDateTime::currentDateTime());
+	// qDebug() << "time_elapsed: " << time_elapsed;
 	bool all_end = true;
 	for (auto it : this->replay_its) {
 		if (it->hasNext()) {
 			all_end = false;
 			QJsonArray data = it->peekNext().toArray();
+			// qDebug() << "data_elapse: "
+			// 		 << this->replay_data_start_time.msecsTo(QDateTime::fromMSecsSinceEpoch(data.at(0).toInt()));
 			if (this->replay_data_start_time.msecsTo(QDateTime::fromMSecsSinceEpoch(data.at(0).toInt()))
-				< time_elapsed) {
+				> time_elapsed) {
 				break;
 			}
+			it->rmNext();
 			emit playbackData(it->getKey(), data.at(0).toInt(), data.at(1).toInt(), data.at(2).toInt(),
 							  data.at(3).toInt(), data.at(4).toInt());
 		}

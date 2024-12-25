@@ -77,6 +77,8 @@ public:
 	const int width() const;
 	const int height() const;
 
+	void clear();
+
 private:
 	QGraphicsView* m_view;
 	QGraphicsScene* m_scene;
