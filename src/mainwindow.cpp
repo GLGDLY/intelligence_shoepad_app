@@ -521,7 +521,7 @@ void MainWindow::startStopBtnClicked() {
 			this->start_stop_btn->setText("Stop record");
 			this->start_stop_btn->setStyleSheet(
 				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
-			this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+			// this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
 			break;
 		}
 		case RecorderStateRecording: {
