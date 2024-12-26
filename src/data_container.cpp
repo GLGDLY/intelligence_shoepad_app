@@ -10,7 +10,8 @@ DataContainer::DataContainer(int capacity)
 	, timestamps(new qint64[capacity])
 	, data_X(new int16_t[capacity])
 	, data_Y(new int16_t[capacity])
-	, data_Z(new int16_t[capacity]) {}
+	, data_Z(new int16_t[capacity])
+	, lock(QReadWriteLock::NonRecursive) {}
 
 DataContainer::~DataContainer() {
 	delete[] timestamps;
@@ -20,6 +21,7 @@ DataContainer::~DataContainer() {
 }
 
 void DataContainer::append(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
+	this->lock.lockForWrite();
 	qDebug() << "Appending data: " << timestamp << " " << X << " " << Y << " " << Z;
 	qDebug() << "Head: " << head << " Tail: " << tail;
 	this->timestamps[tail] = timestamp;
@@ -30,6 +32,7 @@ void DataContainer::append(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
 	if (tail == head) {
 		head = (head + 1) % _capacity;
 	}
+	this->lock.unlock();
 }
 
 void DataContainer::clear() { head = tail = 0; }

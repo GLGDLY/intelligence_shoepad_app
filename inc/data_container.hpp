@@ -1,12 +1,12 @@
 #ifndef _DATA_CONTAINER_HPP
 #define _DATA_CONTAINER_HPP
 
+#include <QWriteLocker>
 #include <QtTypes>
 #include <stdint.h>
 #include <time.h>
 #include <tuple>
 #include <utility>
-
 
 
 class DataContainer {
@@ -49,6 +49,7 @@ private:
 	int head, tail;
 	time_t* timestamps;
 	int16_t *data_X, *data_Y, *data_Z;
+	QReadWriteLock lock;
 };
 
 #endif // _DATA_CONTAINER_HPP
