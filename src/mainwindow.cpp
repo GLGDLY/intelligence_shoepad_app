@@ -276,7 +276,9 @@ void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X
 	bool need_reload_chart = false;
 	if (this->data_clear_flags.contains(key)) {
 		qDebug() << "Cal end, clearing data for device: " << key;
-		this->data_map[key]->clear();
+		if (this->data_map.contains(key)) {
+			this->data_map[key]->clear();
+		}
 		this->data_clear_flags.remove(key);
 		need_reload_chart = this->comboBox->currentText() == key;
 	}
