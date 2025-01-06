@@ -65,10 +65,12 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 		switch (message.at(0) - '0') {
 			case STATUS_OFFLINE: {
 				qDebug() << "[MQTT] Status update: Device offline";
+				emit updateEspStatus(topic.levels().at(1), false);
 				break;
 			}
 			case STATUS_ONLINE: {
 				qDebug() << "[MQTT] Status update: Device online";
+				emit updateEspStatus(topic.levels().at(1), true);
 				break;
 			}
 			default: {
@@ -80,6 +82,7 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 	} else if (topic.levels().at(2).compare("d") == 0) {
 		qDebug() << "[MQTT] Data update: " << message;
 		emit dataReceived(message, topic);
+		emit updateEspStatus(topic.levels().at(1), true);
 	} else if (topic.levels().at(2).compare("cal") == 0) {
 		qDebug() << "[MQTT] Calibration end: " << message;
 		emit calEndReceived(topic.levels().at(1), topic.levels().at(3));

@@ -27,6 +27,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/../bin)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools Core Charts Network Mqtt)
 
+add_compile_definitions("DEBUG=$<CONFIG:Debug>")
+
 # include libbroker.h and add libbroker.a static library
 # execute_process(COMMAND go build -buildmode=c-archive -o ./lib/libbroker.a WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/broker)
 add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a

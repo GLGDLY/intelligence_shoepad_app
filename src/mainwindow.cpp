@@ -20,6 +20,7 @@ MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 	, ui(new Ui::MainWindow)
 	, comboBox(new QComboBox())
+	, esp_status_label(new QLabel())
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QSplineSeries(), new QSplineSeries(), new QSplineSeries()}
@@ -52,8 +53,16 @@ MainWindow::MainWindow(QWidget* parent)
 	comboBox->setStyle(QStyleFactory::create("Fusion"));
 	connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::updateChartSelect);
 	// add to mainwindow on (450, 0)
-	comboBox->setGeometry(450 + 10, 10, this->width() - 450 - 20, 25);
+	comboBox->setGeometry(450 + 10, 10, this->width() - 450 - 20 - 100, 25);
 	this->layout()->addWidget(comboBox);
+
+	// esp_status_label
+	esp_status_label->setGeometry(comboBox->x() + comboBox->width() + 5, 10, 100, 25);
+	esp_status_label->setStyleSheet("QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+	esp_status_label->setFont(QFont("Arial", 10, QFont::Bold));
+	esp_status_label->setAlignment(Qt::AlignCenter);
+	esp_status_label->setText("N.A.");
+	this->layout()->addWidget(esp_status_label);
 
 	// chart
 	auto chart_height = (this->height() - comboBox->height() - comboBox->y()) / 3;
@@ -167,6 +176,7 @@ MainWindow::MainWindow(QWidget* parent)
 	mqtt->connect_client_signal(&QMqttClient::stateChanged, this, &MainWindow::updateMQTTStatus);
 	connect(mqtt, &MqttApp::dataReceived, this, &MainWindow::updateData);
 	connect(mqtt, &MqttApp::calEndReceived, this, &MainWindow::updateCalEndStatus);
+	connect(mqtt, &MqttApp::updateEspStatus, this, &MainWindow::updateEspStatus);
 
 	// mqtt timer
 	connect(mqtt_last_received_timer, &QTimer::timeout, this, &MainWindow::updateMQTTLastReceived);
@@ -186,6 +196,7 @@ MainWindow::~MainWindow() {
 		delete series[i];
 	}
 	delete comboBox;
+	delete esp_status_label;
 	delete mqtt_state_btn;
 	delete mqtt;
 	for (auto value : this->data_map.values()) {
@@ -205,6 +216,7 @@ void MainWindow::updateMQTTLastReceived() {
 	// 	this->updateCalEndStatus("test_esp", "0");
 	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateEspStatus("test_esp", true);
 	// 	do_once = false;
 	// }
 	/* Testing */
@@ -355,6 +367,15 @@ void MainWindow::updateChartSelect(int index) {
 	// 		series[0]->append(series[0]->points().first().x(), series[0]->points().first().y());
 	// 	}
 	// }
+	if (this->esp_status_map.contains(key) && this->esp_status_map[key]) {
+		this->esp_status_label->setText("Online");
+		this->esp_status_label->setStyleSheet(
+			"QLabel { color: #00ff00; background-color: #cfcfcf; border-radius: 5px; }");
+	} else {
+		this->esp_status_label->setText("Offline");
+		this->esp_status_label->setStyleSheet(
+			"QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+	}
 
 	qDebug() << "Data appended, reloading chart";
 
@@ -560,6 +581,17 @@ void MainWindow::replayFinished() {
 	// this->start_stop_btn->setText("Stop replay");
 	this->start_stop_btn->setStyleSheet(
 		"QPushButton { border-radius: 5px; background-color: #a9a9a9; color:rgb(164, 134, 0); }");
+}
+
+void MainWindow::updateEspStatus(const QString esp_id, bool status) {
+	qDebug() << "Updating ESP status: " << esp_id << " " << status;
+	this->esp_status_map[esp_id] = status;
+	if (this->comboBox->currentText().startsWith(esp_id)) {
+		this->esp_status_label->setText(status ? "Online" : "Offline");
+		this->esp_status_label->setStyleSheet(
+			status ? "QLabel { color: #00ff00; background-color: #cfcfcf; border-radius: 5px; }"
+				   : "QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+	}
 }
 
 void MainWindow::clear() {

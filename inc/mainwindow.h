@@ -15,6 +15,7 @@
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
 #include <qdialog.h>
+#include <qpixmap.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -32,7 +33,12 @@ public:
 
 private:
 	Ui::MainWindow* ui;
+
 	QComboBox* comboBox;
+
+	QLabel* esp_status_label;
+	QMap<QString, bool> esp_status_map;
+
 	QChartView* chartView[3];
 	QChart* chart[3];
 	QSplineSeries* series[3];
@@ -77,6 +83,8 @@ private slots:
 	void mqttStateBtnClicked();
 	void startStopBtnClicked();
 	void replayFinished();
+
+	void updateEspStatus(const QString esp_id, bool status);
 
 	void clear();
 };

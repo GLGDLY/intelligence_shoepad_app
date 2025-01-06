@@ -32,6 +32,7 @@ public:
 Q_SIGNALS:
 	void dataReceived(const QByteArray& message, const QMqttTopicName& topic);
 	void calEndReceived(const QString esp_id, const QString sensor_id);
+	void updateEspStatus(const QString esp_id, bool status);
 
 private slots:
 	void onConnected();
