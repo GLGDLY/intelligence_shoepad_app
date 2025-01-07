@@ -129,45 +129,56 @@ MainWindow::MainWindow(QWidget* parent)
 	QString x_placeholder = "X: 0-%1";
 	QString y_placeholder = "Y: 0-%1";
 	x_input->setPlaceholderText(x_placeholder.arg(this->graphicsManager->width()));
-	x_input->setGeometry(10, 10, 100, 25);
+	x_input->setGeometry(10, 10, 95, 25);
 	x_input->setStyleSheet("QLineEdit { background-color:rgb(202, 202, 202); color: #000; }");
+	x_input->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(x_input);
 
 	y_input->setPlaceholderText(y_placeholder.arg(this->graphicsManager->height()));
-	y_input->setGeometry(110, 10, 100, 25);
+	y_input->setGeometry(110, 10, 95, 25);
 	y_input->setStyleSheet("QLineEdit { background-color: rgb(202, 202, 202); color: #000; }");
+	y_input->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(y_input);
 
 	// xy save button
 	xy_save_button->setGeometry(210, 10, 50, 25);
 	xy_save_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
+	xy_save_button->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(xy_save_button);
 	connect(xy_save_button, &QPushButton::clicked, this, &MainWindow::xySaveButtonClicked);
 
 	// sensor recalibration button
 	sensor_recalibration_button->setGeometry(270, 10, 100, 25);
 	sensor_recalibration_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
+	sensor_recalibration_button->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(sensor_recalibration_button);
 	connect(sensor_recalibration_button, &QPushButton::clicked, this, &MainWindow::sensorRecalibrationButtonClicked);
 
 	// mqtt status bar
-	QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect();
-	effect->setBlurRadius(5);
-	effect->setOffset(2, 2);
-	effect->setColor(QColor(0, 0, 0, 255 * 0.1));
-	mqtt_state_btn->setGraphicsEffect(effect);
+	QGraphicsDropShadowEffect* effect0 = new QGraphicsDropShadowEffect(mqtt_state_btn);
+	effect0->setBlurRadius(5);
+	effect0->setOffset(2, 2);
+	effect0->setColor(QColor(0, 0, 0, 255 * 0.4));
+	mqtt_state_btn->setGraphicsEffect(effect0);
 	mqtt_state_btn->setText("MQTT: Disconnected");
 	mqtt_state_btn->setFont(QFont("Calibri", 11, QFont::Medium));
 	mqtt_state_btn->setStyleSheet("QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #ff0000; }");
+	mqtt_state_btn->setToolTip("Click to select JSON file to replay");
 	mqtt_state_btn->setGeometry(10, this->height() - 25 - 10, 220, 30);
 	connect(mqtt_state_btn, &QPushButton::clicked, this, &MainWindow::mqttStateBtnClicked);
 	this->layout()->addWidget(mqtt_state_btn);
 
 	// start_stop_btn
-	start_stop_btn->setGraphicsEffect(effect);
+	QGraphicsDropShadowEffect* effect1 = new QGraphicsDropShadowEffect(start_stop_btn);
+	effect1->setBlurRadius(5);
+	effect1->setOffset(2, 2);
+	effect1->setColor(QColor(0, 0, 0, 255 * 0.4));
+	start_stop_btn->setGraphicsEffect(effect1);
 	start_stop_btn->setText("Start record");
 	start_stop_btn->setFont(QFont("Calibri", 11, QFont::Medium));
 	start_stop_btn->setStyleSheet("QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
+
+	start_stop_btn->setToolTip("Click to start/stop recording or replaying");
 	start_stop_btn->setGeometry(240, this->height() - 25 - 10, 100, 30);
 	connect(start_stop_btn, &QPushButton::clicked, this, &MainWindow::startStopBtnClicked);
 	this->layout()->addWidget(start_stop_btn);
