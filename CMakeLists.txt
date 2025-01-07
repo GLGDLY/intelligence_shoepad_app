@@ -45,6 +45,15 @@ add_dependencies(broker broker_lib)
 set_target_properties(broker PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a)
 target_include_directories(broker INTERFACE ${CMAKE_SOURCE_DIR}/broker/lib)
 
+# add boost from conda
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+
+# add 3rdparty/lib_tensorflow
+include_directories(${CMAKE_SOURCE_DIR}/3rdparty/lib_tensorflow/include)
+link_directories(${CMAKE_SOURCE_DIR}/3rdparty/lib_tensorflow/lib)
+file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/lib_tensorflow/lib/tensorflow.dll DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
 set(SRC_DIR src)
 set(INC_DIR inc)
 
@@ -92,6 +101,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Network)
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt${QT_VERSION_MAJOR}::Mqtt)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE broker)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE tensorflow)
 
 # link dbghelp.lib for stack trace
 if(WIN32)

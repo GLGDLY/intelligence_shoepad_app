@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "udp_app.hpp"
+#include "network.hpp"
 
 #include <QApplication>
 #include <QLocale>
@@ -86,6 +86,9 @@ int main(int argc, char* argv[]) {
 #endif
 
 	try {
+		Network network;
+		network.test_tf();
+
 		QApplication a(argc, argv);
 
 		QTranslator translator;
