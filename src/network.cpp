@@ -13,13 +13,38 @@ Network::Network() {}
 Network::~Network() {}
 
 void Network::test_tf() {
-	TF_Status* status = TF_NewStatus();
-	TF_Code code = TF_GetCode(status);
-	char const* code_s = boost::describe::enum_to_string(code, "Unknown");
+	// https://github.com/RoyVII/Tensorflow_C_Example/blob/master/src/tf_functions.cpp
 	qDebug() << "TensorFlow version: " << TF_Version();
-	qDebug() << "Status: " << code_s;
-	if (code != TF_OK) {
-		qDebug() << "Status error: " << TF_Message(status);
+
+	TF_Status* status = TF_NewStatus();
+	TF_SessionOptions* session_opts = TF_NewSessionOptions();
+	TF_Buffer* run_opts = NULL;
+	TF_Graph* graph = TF_NewGraph();
+	const char* tags = "serve";
+	const char* model_path = R"(C:\Users\leung\Downloads\mnist_test_model)";
+	TF_Session* session =
+		TF_LoadSessionFromSavedModel(session_opts, run_opts, model_path, &tags, 1, graph, NULL, status);
+
+	if (TF_GetCode(status) != TF_OK) {
+		TF_Code code = TF_GetCode(status);
+		char const* code_s = boost::describe::enum_to_string(code, "Unknown");
+		qDebug() << "Error loading model: " << code_s << " - " << TF_Message(status);
+		goto cleanup;
+	}
+
+	qDebug() << "Model loaded successfully";
+
+cleanup:
+	TF_DeleteSession(session, status);
+	if (TF_GetCode(status) != TF_OK) {
+		TF_Code code = TF_GetCode(status);
+		char const* code_s = boost::describe::enum_to_string(code, "Unknown");
+		qDebug() << "Error closing session: " << code_s << " - " << TF_Message(status);
+	}
+	if (run_opts) {
+		TF_DeleteBuffer(run_opts);
 	}
 	TF_DeleteStatus(status);
+	TF_DeleteSessionOptions(session_opts);
+	TF_DeleteGraph(graph);
 }
