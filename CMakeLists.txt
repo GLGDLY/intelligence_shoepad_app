@@ -37,9 +37,13 @@ add_custom_command(OUTPUT ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a
     DEPENDS ${CMAKE_SOURCE_DIR}/broker/main.go
     COMMENT "Building libbroker.a"
 )
-include_directories(${CMAKE_SOURCE_DIR}/broker/lib)
-add_library(broker STATIC IMPORTED)
+add_custom_target(broker_lib ALL DEPENDS ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a)
+
+# add library that depands on libbroker.a
+add_library(broker STATIC IMPORTED GLOBAL)
+add_dependencies(broker broker_lib)
 set_target_properties(broker PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/broker/lib/libbroker.a)
+target_include_directories(broker INTERFACE ${CMAKE_SOURCE_DIR}/broker/lib)
 
 set(SRC_DIR src)
 set(INC_DIR inc)
@@ -120,6 +124,3 @@ endif()
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/images $<TARGET_FILE_DIR:${PROJECT_NAME}>/images)
-
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND tar -acvf ${PROJECT_NAME}.zip -C ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/ *.*)
