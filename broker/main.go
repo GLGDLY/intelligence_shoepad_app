@@ -35,12 +35,15 @@ func StartBroker() {
 		err := server.Serve()
 		if err != nil {
 			log.Fatal(err)
+			log.Println("Server failed")
 		}
 	}()
+
 }
 
 //export StopBroker
 func StopBroker() {
+	log.Println("Stopping broker")
 	server.Close()
 }
 

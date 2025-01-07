@@ -12,14 +12,16 @@
 const char connection_search[] = "search";
 const char connection_found[] = "found";
 
-UServer::UServer(QObject* parent) : QObject(parent) {
-	udpSocket = new QUdpSocket(this);
+UServer::UServer(QObject* parent) : QObject(parent), udpSocket(new QUdpSocket(this)) {
 	connect(udpSocket, &QUdpSocket::readyRead, this, &UServer::readPendingDatagrams);
 }
 
-UServer::~UServer() { delete udpSocket; }
+UServer::~UServer() {
+	this->stop();
+	delete udpSocket;
+}
 
-void UServer::start() {
+QString UServer::start() {
 	// boardcast to port 1884 to check if any instance already exists in local network, if yes, quit
 	QUdpSocket sendSock;
 	sendSock.writeDatagram(connection_search, QHostAddress::Broadcast, 1884);
@@ -33,12 +35,13 @@ void UServer::start() {
 		sendSock.readDatagram(data.data(), data.size(), &sender, &port);
 		qDebug() << "[UDP] Received datagram: " << data << " from " << sender.toString() << ":" << port;
 		if (data.compare(connection_found) == 0) {
-			qDebug() << "[UDP] Another instance found, exiting";
-			MsgBox box(nullptr, QMessageBox::Icon::Critical, "Error",
-					   "Another instance already exists in local network", QMessageBox::Ok, QMessageBox::Ok);
-			connect(box.msgBox, &QMessageBox::finished, qApp, &QApplication::quit);
-			box.show();
-			return;
+			// qDebug() << "[UDP] Another instance found, exiting";
+			// MsgBox box(nullptr, QMessageBox::Icon::Critical, "Error",
+			// 		   "Another instance already exists in local network", QMessageBox::Ok, QMessageBox::Ok);
+			// connect(box.msgBox, &QMessageBox::finished, qApp, &QApplication::quit);
+			// box.show();
+			qDebug() << "[UDP] Another instance found, returning host address";
+			return sender.toString();
 		}
 	}
 
@@ -56,11 +59,18 @@ void UServer::start() {
 		connect(box.msgBox, &QMessageBox::finished, qApp, &QApplication::quit);
 		box.show();
 	}
+	qDebug() << "[UDP] Server started";
+	this->running = true;
+	return "localhost";
 }
 
 void UServer::stop() {
+	if (!this->running) {
+		return;
+	}
 	StopBroker();
 	udpSocket->close();
+	this->running = false;
 }
 
 void UServer::readPendingDatagrams() {

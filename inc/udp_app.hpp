@@ -13,7 +13,7 @@ public:
 	UServer(QObject* parent = nullptr);
 	~UServer();
 
-	void start();
+	QString start();
 	void stop();
 
 private slots:
@@ -21,6 +21,7 @@ private slots:
 
 private:
 	QUdpSocket* udpSocket;
+	bool running = false;
 };
 
 

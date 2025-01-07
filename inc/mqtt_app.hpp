@@ -2,6 +2,7 @@
 #define _MQTT_APP_HPP
 
 #include "macro_utils.h"
+#include "udp_app.hpp"
 
 #include <Qtmqtt/QMqttClient>
 #include <qobjectdefs.h>
@@ -39,6 +40,7 @@ private slots:
 	void onMessage(const QByteArray& message, const QMqttTopicName& topic);
 
 private:
+	UServer udp_server;
 	QMqttClient* client;
 	QMqttSubscription* subscription;
 };

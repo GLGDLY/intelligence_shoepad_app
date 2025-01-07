@@ -1,13 +1,18 @@
 #include "mqtt_app.hpp"
 
+#include "udp_app.hpp"
+
 #include <QtLogging>
 #include <Qtmqtt/QMqttMessage>
 
+
 MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this)) {
+	QString mqtt_hostname = udp_server.start();
+
 	client->setCleanSession(false);
-	client->setHostname("localhost");
+	client->setHostname(mqtt_hostname);
 	client->setPort(1883);
-	client->setClientId("intelligence_shoepad_app");
+	client->setClientId("shoepad_app_" + QString::number(QDateTime::currentSecsSinceEpoch()));
 	client->setCleanSession(true);
 	client->setKeepAlive(60);
 

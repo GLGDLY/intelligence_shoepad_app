@@ -88,13 +88,6 @@ int main(int argc, char* argv[]) {
 	try {
 		QApplication a(argc, argv);
 
-		UServer server;
-		QThread serverThread;
-		server.moveToThread(&serverThread);
-		QObject::connect(&serverThread, &QThread::started, &server, &UServer::start);
-		QObject::connect(&serverThread, &QThread::finished, &server, &UServer::stop);
-		serverThread.start();
-
 		QTranslator translator;
 		const QStringList uiLanguages = QLocale::system().uiLanguages();
 		for (const QString& locale : uiLanguages) {
