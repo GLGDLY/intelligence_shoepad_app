@@ -15,6 +15,8 @@
 #include <QtLogging>
 #include <QtMinMax>
 
+const int data_series_size = 500;
+
 const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
 										  "color: #00ff00; background-color: #cfcfcf; border-radius: 5px;"};
 
@@ -69,8 +71,9 @@ MainWindow::MainWindow(QWidget* parent)
 	auto chart_height = (this->height() - comboBox->height() - comboBox->y()) / 3;
 	for (int i = 0; i < 3; i++) {
 		chart[i]->setTheme(QChart::ChartThemeHighContrast);
-		chart[i]->setAnimationOptions(QChart::AllAnimations);
-		chart[i]->setAnimationDuration(50);
+		// chart[i]->setAnimationOptions(QChart::AllAnimations);
+		// chart[i]->setAnimationDuration(50);
+		chart[i]->setAnimationOptions(QChart::NoAnimation);
 		chart[i]->legend()->hide();
 		chart[i]->setLocalizeNumbers(true);
 		chart[i]->setLocale(QLocale(QLocale::English));
@@ -91,13 +94,11 @@ MainWindow::MainWindow(QWidget* parent)
 		axisX->setTitleFont(QFont("Arial", 10));
 		axisX->setMinorGridLineVisible(false);
 		axisX->setGridLineVisible(false);
-		axisX->setLabelFormat("%d");
 
 		QValueAxis* axisY = (QValueAxis*)chart[i]->axes(Qt::Vertical).back();
 		axisY->setTitleFont(QFont("Arial", 10));
 		axisY->setMinorGridLineVisible(false);
 		axisY->setGridLineVisible(false);
-		axisY->setLabelFormat("%d");
 
 		chart[i]->addAxis(axisX, Qt::AlignBottom);
 		chart[i]->addAxis(axisY, Qt::AlignLeft);
@@ -317,7 +318,7 @@ void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X
 	}
 
 	if (!this->data_map.contains(key)) {
-		this->data_map.insert(key, new DataContainer(1000));
+		this->data_map.insert(key, new DataContainer(data_series_size));
 		this->data_map[key]->append(timestamp, X, Y, Z);
 
 		this->comboBox->addItem(key);
@@ -378,16 +379,11 @@ void MainWindow::updateChartSelect(int index) {
 	qDebug() << "Series cleared";
 
 	for (auto [timestamp, value] : *data) {
-		series[0]->append(timestamp - this->start_time, std::get<0>(value));
-		series[1]->append(timestamp - this->start_time, std::get<1>(value));
-		series[2]->append(timestamp - this->start_time, std::get<2>(value));
+		const qreal time_sec = (timestamp - this->start_time) / 1000.0;
+		series[0]->append(time_sec, std::get<0>(value));
+		series[1]->append(time_sec, std::get<1>(value));
+		series[2]->append(time_sec, std::get<2>(value));
 	}
-	// for (auto s : series) {
-	// 	// qDebug() << "Series size: " << s->points().size();
-	// 	if (s->points().size() == 1) {
-	// 		series[0]->append(series[0]->points().first().x(), series[0]->points().first().y());
-	// 	}
-	// }
 	if (this->esp_status_map.contains(key) && QDateTime::currentMSecsSinceEpoch() - this->esp_status_map[key] < 5000) {
 		this->esp_status_label->setText("Online");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[1]);
@@ -446,18 +442,19 @@ void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z)
 	timestamp -= this->start_time;
 	qDebug() << "Adding data to chart: " << timestamp << " " << X << " " << Y << " " << Z;
 
-	series[0]->append(timestamp, X);
-	series[1]->append(timestamp, Y);
-	series[2]->append(timestamp, Z);
+	const qreal time_sec = timestamp / 1000.0;
+	series[0]->append(time_sec, X);
+	series[1]->append(time_sec, Y);
+	series[2]->append(time_sec, Z);
 
 	const qreal d[3] = {(qreal)X, (qreal)Y, (qreal)Z};
 	for (int i = 0; i < 3; i++) {
-		if (series[i]->points().size() > 1000) {
+		if (series[i]->points().size() > data_series_size) {
 			series[i]->remove(0);
 		}
 
 		qreal minX = series[i]->points().first().x();
-		qreal maxX = timestamp;
+		qreal maxX = time_sec;
 		qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
 		qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
 
