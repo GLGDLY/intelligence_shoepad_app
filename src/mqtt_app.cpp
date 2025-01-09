@@ -87,7 +87,6 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 	} else if (topic.levels().at(2).compare("d") == 0) {
 		qDebug() << "[MQTT] Data update: " << message;
 		emit dataReceived(message, topic);
-		emit updateEspStatus(topic.levels().at(1), true);
 	} else if (topic.levels().at(2).compare("cal") == 0) {
 		qDebug() << "[MQTT] Calibration end: " << message;
 		emit calEndReceived(topic.levels().at(1), topic.levels().at(3));

@@ -86,8 +86,8 @@ int main(int argc, char* argv[]) {
 #endif
 
 	try {
-		Network network;
-		network.test_tf();
+		// Network network;
+		// network.test_tf();
 
 		QApplication a(argc, argv);
 

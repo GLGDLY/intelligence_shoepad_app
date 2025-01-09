@@ -15,6 +15,8 @@
 #include <QtLogging>
 #include <QtMinMax>
 
+const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
+										  "color: #00ff00; background-color: #cfcfcf; border-radius: 5px;"};
 
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
@@ -27,7 +29,6 @@ MainWindow::MainWindow(QWidget* parent)
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
-	, mqtt_last_received(0)
 	, mqtt_last_received_timer(new QTimer())
 	, mqtt(new MqttApp())
 	, x_input(new QLineEdit())
@@ -58,7 +59,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// esp_status_label
 	esp_status_label->setGeometry(comboBox->x() + comboBox->width() + 5, 10, 100, 25);
-	esp_status_label->setStyleSheet("QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+	esp_status_label->setStyleSheet(esp_status_label_style[0]);
 	esp_status_label->setFont(QFont("Arial", 10, QFont::Bold));
 	esp_status_label->setAlignment(Qt::AlignCenter);
 	esp_status_label->setText("N.A.");
@@ -227,16 +228,26 @@ void MainWindow::updateMQTTLastReceived() {
 	// 	this->updateCalEndStatus("test_esp", "0");
 	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateEspStatus("test_esp", true);
 	// 	do_once = false;
 	// }
 	/* Testing */
 
-	if (this->mqtt_state == QMqttClient::ClientState::Connected) {
-		QString text = "MQTT: Connected(%1)";
-		text = text.arg((QDateTime::currentMSecsSinceEpoch() - this->mqtt_last_received) / 1000);
-		mqtt_state_btn->setText(text);
+	QStringList split = this->comboBox->currentText().split("_");
+	QString key;
+	for (int i = 0; i < split.size() - 1; i++) {
+		key += split.at(i);
+		if (i != split.size() - 2) {
+			key += "_";
+		}
 	}
+	if (!this->esp_status_map.contains(key)) {
+		this->esp_status_label->setText("N.A.");
+		this->esp_status_label->setStyleSheet(esp_status_label_style[0]);
+		return;
+	}
+	bool status = QDateTime::currentMSecsSinceEpoch() - this->esp_status_map[key] < 5000;
+	this->esp_status_label->setText(status ? "Online" : "Offline");
+	this->esp_status_label->setStyleSheet(esp_status_label_style[status]);
 }
 
 void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
@@ -255,8 +266,7 @@ void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
 			break;
 		}
 		case QMqttClient::ClientState::Connected: {
-			this->mqtt_last_received = QDateTime::currentMSecsSinceEpoch();
-			mqtt_state_btn->setText("MQTT: Connected(0)");
+			mqtt_state_btn->setText("MQTT: Connected");
 			mqtt_state_btn->setStyleSheet(
 				"QPushButton { border-radius: 5px; background-color: #a9a9a9; color: #00ff00; }");
 			break;
@@ -275,7 +285,6 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	// qDebug() << "data_map contains? " << this->data_map.contains(key);
 
 	qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
-	this->mqtt_last_received = timestamp;
 	QList<QByteArray> data = message.split(',');
 	if (data.size() != 4) {
 		qDebug() << "Invalid data size";
@@ -291,6 +300,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 		this->recorder.dataRecord(key, timestamp, T, X, Y, Z);
 		this->processData(key, timestamp, T, X, Y, Z);
 	}
+	this->updateEspStatus(topic.levels().at(1), true);
 }
 
 void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z) {
@@ -378,14 +388,12 @@ void MainWindow::updateChartSelect(int index) {
 	// 		series[0]->append(series[0]->points().first().x(), series[0]->points().first().y());
 	// 	}
 	// }
-	if (this->esp_status_map.contains(key) && this->esp_status_map[key]) {
+	if (this->esp_status_map.contains(key) && QDateTime::currentMSecsSinceEpoch() - this->esp_status_map[key] < 5000) {
 		this->esp_status_label->setText("Online");
-		this->esp_status_label->setStyleSheet(
-			"QLabel { color: #00ff00; background-color: #cfcfcf; border-radius: 5px; }");
+		this->esp_status_label->setStyleSheet(esp_status_label_style[1]);
 	} else {
 		this->esp_status_label->setText("Offline");
-		this->esp_status_label->setStyleSheet(
-			"QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+		this->esp_status_label->setStyleSheet(esp_status_label_style[0]);
 	}
 
 	qDebug() << "Data appended, reloading chart";
@@ -450,8 +458,8 @@ void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z)
 
 		qreal minX = series[i]->points().first().x();
 		qreal maxX = timestamp;
-		qreal minY = qMin(std::get<0>(chart_range_y[i]), d[i]);
-		qreal maxY = qMax(std::get<1>(chart_range_y[i]), d[i]);
+		qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
+		qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
 
 		chart_range_y[i] = std::make_tuple(minY, maxY);
 
@@ -596,12 +604,10 @@ void MainWindow::replayFinished() {
 
 void MainWindow::updateEspStatus(const QString esp_id, bool status) {
 	qDebug() << "Updating ESP status: " << esp_id << " " << status;
-	this->esp_status_map[esp_id] = status;
+	this->esp_status_map[esp_id] = QDateTime::currentMSecsSinceEpoch();
 	if (this->comboBox->currentText().startsWith(esp_id)) {
 		this->esp_status_label->setText(status ? "Online" : "Offline");
-		this->esp_status_label->setStyleSheet(
-			status ? "QLabel { color: #00ff00; background-color: #cfcfcf; border-radius: 5px; }"
-				   : "QLabel { color: #ff0000; background-color: #cfcfcf; border-radius: 5px; }");
+		this->esp_status_label->setStyleSheet(esp_status_label_style[status]);
 	}
 }
 

@@ -37,7 +37,7 @@ private:
 	QComboBox* comboBox;
 
 	QLabel* esp_status_label;
-	QMap<QString, bool> esp_status_map;
+	QMap<QString, qint64> esp_status_map;
 
 	QChartView* chartView[3];
 	QChart* chart[3];
@@ -45,7 +45,6 @@ private:
 	std::tuple<qreal, qreal> chart_range_y[3];
 	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
-	qint64 mqtt_last_received;
 	QTimer* mqtt_last_received_timer;
 
 	MqttApp* mqtt;
