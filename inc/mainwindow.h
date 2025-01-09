@@ -39,6 +39,9 @@ private:
 	QLabel* esp_status_label;
 	QMap<QString, qint64> esp_status_map;
 
+	QElapsedTimer elapsed_timer;
+	qint64 start_time;
+
 	QChartView* chartView[3];
 	QChart* chart[3];
 	QSplineSeries* series[3];
@@ -59,9 +62,9 @@ private:
 
 	Settings* settings;
 
-	qint64 start_time;
-
 	DataRecorder recorder;
+
+	const qint64 getNowNanoSec() const;
 
 private slots:
 	void updateMQTTLastReceived();

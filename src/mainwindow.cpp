@@ -20,6 +20,9 @@ const int data_series_size = 500;
 const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
 										  "color: #00ff00; background-color: #cfcfcf; border-radius: 5px;"};
 
+static qint64 secToNanoSec(qint64 sec) { return sec * 1000 * 1000 * 1000; }
+static double NanoSecToSec(qint64 ns) { return ns / 1000.0 / 1000.0 / 1000.0; }
+
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 	, ui(new Ui::MainWindow)
@@ -38,8 +41,7 @@ MainWindow::MainWindow(QWidget* parent)
 	, xy_save_button(new QPushButton("Save"))
 	, sensor_recalibration_button(new QPushButton("Recalibrate"))
 	, data_clear_flags()
-	, settings(new Settings())
-	, start_time(QDateTime::currentMSecsSinceEpoch()) {
+	, settings(new Settings()) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -66,6 +68,10 @@ MainWindow::MainWindow(QWidget* parent)
 	esp_status_label->setAlignment(Qt::AlignCenter);
 	esp_status_label->setText("N.A.");
 	this->layout()->addWidget(esp_status_label);
+
+	// elapsed_timer
+	this->elapsed_timer.start();
+	this->start_time = this->getNowNanoSec();
 
 	// chart
 	auto chart_height = (this->height() - comboBox->height() - comboBox->y()) / 3;
@@ -220,6 +226,8 @@ MainWindow::~MainWindow() {
 	}
 }
 
+const qint64 MainWindow::getNowNanoSec() const { return this->elapsed_timer.nsecsElapsed(); }
+
 void MainWindow::updateMQTTLastReceived() {
 	/* Testing */
 	// static bool do_once = true;
@@ -246,7 +254,7 @@ void MainWindow::updateMQTTLastReceived() {
 		this->esp_status_label->setStyleSheet(esp_status_label_style[0]);
 		return;
 	}
-	bool status = QDateTime::currentMSecsSinceEpoch() - this->esp_status_map[key] < 5000;
+	bool status = this->getNowNanoSec() - this->esp_status_map[key] < secToNanoSec(5); // 5 sec timeout
 	this->esp_status_label->setText(status ? "Online" : "Offline");
 	this->esp_status_label->setStyleSheet(esp_status_label_style[status]);
 }
@@ -285,7 +293,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	// qDebug() << "Received data from device: " << key;
 	// qDebug() << "data_map contains? " << this->data_map.contains(key);
 
-	qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+	qint64 timestamp_ns = this->getNowNanoSec();
 	QList<QByteArray> data = message.split(',');
 	if (data.size() != 4) {
 		qDebug() << "Invalid data size";
@@ -298,14 +306,14 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 	Z = data.at(3).toInt();
 
 	if (this->recorder.getState() != RecorderStateReplaying) {
-		this->recorder.dataRecord(key, timestamp, T, X, Y, Z);
-		this->processData(key, timestamp, T, X, Y, Z);
+		this->recorder.dataRecord(key, timestamp_ns, T, X, Y, Z);
+		this->processData(key, timestamp_ns, T, X, Y, Z);
 	}
 	this->updateEspStatus(topic.levels().at(1), true);
 }
 
-void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X, int16_t Y, int16_t Z) {
-	qDebug() << "Processing data: " << key << " " << timestamp << " " << T << " " << X << " " << Y << " " << Z;
+void MainWindow::processData(QString key, qint64 timestamp_ns, int16_t T, int16_t X, int16_t Y, int16_t Z) {
+	qDebug() << "Processing data: " << key << " " << timestamp_ns << " " << T << " " << X << " " << Y << " " << Z;
 
 	bool need_reload_chart = false;
 	if (this->data_clear_flags.contains(key)) {
@@ -319,7 +327,7 @@ void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X
 
 	if (!this->data_map.contains(key)) {
 		this->data_map.insert(key, new DataContainer(data_series_size));
-		this->data_map[key]->append(timestamp, X, Y, Z);
+		this->data_map[key]->append(timestamp_ns, X, Y, Z);
 
 		this->comboBox->addItem(key);
 		this->comboBox->model()->sort(0);
@@ -333,9 +341,9 @@ void MainWindow::processData(QString key, qint64 timestamp, int16_t T, int16_t X
 
 		qDebug() << "new device added: " << key;
 	} else {
-		this->data_map[key]->append(timestamp, X, Y, Z);
+		this->data_map[key]->append(timestamp_ns, X, Y, Z);
 		if (this->comboBox->currentText() == key) {
-			this->addChartData(timestamp, X, Y, Z);
+			this->addChartData(timestamp_ns, X, Y, Z);
 		}
 	}
 
@@ -378,13 +386,13 @@ void MainWindow::updateChartSelect(int index) {
 	series[2]->clear();
 	qDebug() << "Series cleared";
 
-	for (auto [timestamp, value] : *data) {
-		const qreal time_sec = (timestamp - this->start_time) / 1000.0;
+	for (auto [timestamp_ns, value] : *data) {
+		const qreal time_sec = NanoSecToSec(timestamp_ns - this->start_time);
 		series[0]->append(time_sec, std::get<0>(value));
 		series[1]->append(time_sec, std::get<1>(value));
 		series[2]->append(time_sec, std::get<2>(value));
 	}
-	if (this->esp_status_map.contains(key) && QDateTime::currentMSecsSinceEpoch() - this->esp_status_map[key] < 5000) {
+	if (this->esp_status_map.contains(key) && this->getNowNanoSec() - this->esp_status_map[key] < secToNanoSec(5)) {
 		this->esp_status_label->setText("Online");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[1]);
 	} else {
@@ -438,11 +446,10 @@ void MainWindow::reloadChart() {
 	qDebug() << series[0]->points().size() << " " << series[1]->points().size() << " " << series[2]->points().size();
 }
 
-void MainWindow::addChartData(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
-	timestamp -= this->start_time;
-	qDebug() << "Adding data to chart: " << timestamp << " " << X << " " << Y << " " << Z;
+void MainWindow::addChartData(qint64 timestamp_ns, int16_t X, int16_t Y, int16_t Z) {
+	const qreal time_sec = NanoSecToSec(timestamp_ns - this->start_time);
+	qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
 
-	const qreal time_sec = timestamp / 1000.0;
 	series[0]->append(time_sec, X);
 	series[1]->append(time_sec, Y);
 	series[2]->append(time_sec, Z);
@@ -601,7 +608,7 @@ void MainWindow::replayFinished() {
 
 void MainWindow::updateEspStatus(const QString esp_id, bool status) {
 	qDebug() << "Updating ESP status: " << esp_id << " " << status;
-	this->esp_status_map[esp_id] = QDateTime::currentMSecsSinceEpoch();
+	this->esp_status_map[esp_id] = this->getNowNanoSec();
 	if (this->comboBox->currentText().startsWith(esp_id)) {
 		this->esp_status_label->setText(status ? "Online" : "Offline");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[status]);
@@ -617,5 +624,6 @@ void MainWindow::clear() {
 	this->comboBox->clear();
 	this->graphicsManager->clear();
 	this->reloadChart();
-	this->start_time = QDateTime::currentMSecsSinceEpoch();
+	this->elapsed_timer.restart();
+	this->start_time = this->getNowNanoSec();
 }
