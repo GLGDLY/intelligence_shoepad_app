@@ -3,13 +3,13 @@
 
 #include <QGraphicsItem>
 #include <QGraphicsView>
+#include <QOpenGLWidget>
 #include <qmap.h>
-#include <qobject.h>
 #include <qpixmap.h>
 
 
 // Base canvas that can be used to draw on
-class Canvas : public QObject {
+class Canvas : public QOpenGLWidget {
 	Q_OBJECT
 public:
 	Canvas(int width, int height, QPixmap bg);

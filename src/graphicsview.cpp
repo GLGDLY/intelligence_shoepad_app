@@ -2,12 +2,10 @@
 
 #include <qbrush.h>
 #include <qlogging.h>
-#include <qnamespace.h>
-#include <qpixmap.h>
 #include <tuple>
 
 
-Canvas::Canvas(int width, int height, QPixmap bg) : QObject(), bg_image(bg) {
+Canvas::Canvas(int width, int height, QPixmap bg) : QOpenGLWidget(), bg_image(bg) {
 	this->pixmap = new QPixmap(width, height);
 	this->painter = new QPainter(pixmap);
 	this->painter->setRenderHint(QPainter::Antialiasing);

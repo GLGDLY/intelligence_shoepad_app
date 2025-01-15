@@ -65,6 +65,7 @@ private:
 	DataRecorder recorder;
 
 	const qint64 getNowNanoSec() const;
+	const qint64 getNowMicroSec() const;
 
 private slots:
 	void updateMQTTLastReceived();

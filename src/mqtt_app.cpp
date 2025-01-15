@@ -76,6 +76,9 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 			case STATUS_ONLINE: {
 				qDebug() << "[MQTT] Status update: Device online";
 				emit updateEspStatus(topic.levels().at(1), true);
+
+				// app/timer/{esp_id}/0, start the esp internal ms timer
+				this->publish(QByteArray(), QMqttTopicName(QString("app/timer/%1/0").arg(topic.levels().at(1))));
 				break;
 			}
 			default: {
