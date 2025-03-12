@@ -245,11 +245,11 @@ void MainWindow::updateMQTTLastReceived() {
 	/* Testing */
 	// static bool do_once = true;
 	// if (do_once) {
-	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateCalEndStatus("test_esp", "0");
-	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("1,2,3,4"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("0/100,200,300,400"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("500/200,300,400,500"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	// this->updateCalEndStatus("test_esp", "0");
+	// 	this->updateData(QByteArray("1000/100,900,800,700"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("2000/400,500,600,700"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	do_once = false;
 	// }
 	/* Testing */
@@ -380,6 +380,7 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 	if (this->getNowMicroSec() - last_update < 100) { // 100ms update interval
 		return;
 	}
+	last_update = this->getNowMicroSec();
 
 	const qreal scale = 600;
 	// this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
@@ -499,11 +500,11 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 	// 	return;
 	// }
 	static QQueue<DataPoint> data_queue;
+	data_queue.enqueue({time_sec, (qreal)X, (qreal)Y, (qreal)Z});
 
 	static qreal last_update_time = 0;
 	if (time_sec > last_update_time && time_sec - last_update_time < 0.1) {
 		// qDebug() << "Time diff too small: " << time_sec - last_update_time;
-		data_queue.enqueue({time_sec, (qreal)X, (qreal)Y, (qreal)Z});
 		return;
 	}
 	last_update_time = time_sec;
@@ -532,20 +533,13 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 		}
 	}
 	data_queue.clear();
-	if (chart_data[0].size() > 2) {
-		series[0]->clear();
-		series[1]->clear();
-		series[2]->clear();
-		// std::sort(chart_data[0].begin(), chart_data[0].end(),
-		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
-		// std::sort(chart_data[1].begin(), chart_data[1].end(),
-		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
-		// std::sort(chart_data[2].begin(), chart_data[2].end(),
-		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
-		series[0]->replace(chart_data[0]);
-		series[1]->replace(chart_data[1]);
-		series[2]->replace(chart_data[2]);
-	}
+
+	series[0]->clear();
+	series[1]->clear();
+	series[2]->clear();
+	series[0]->replace(chart_data[0]);
+	series[1]->replace(chart_data[1]);
+	series[2]->replace(chart_data[2]);
 
 	chartView[0]->setUpdatesEnabled(true);
 	chartView[1]->setUpdatesEnabled(true);

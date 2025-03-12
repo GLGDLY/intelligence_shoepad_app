@@ -1,61 +1,38 @@
 #ifndef _GRAPHICSVIEW_HPP
 #define _GRAPHICSVIEW_HPP
 
+#include <QGraphicsEllipseItem>
 #include <QGraphicsItem>
+#include <QGraphicsLineItem>
 #include <QGraphicsView>
+#include <QMap>
 #include <QOpenGLWidget>
-#include <qmap.h>
-#include <qpixmap.h>
-#include <qtmetamacros.h>
+#include <QPixmap>
+#include <tuple>
 
 
-// Base canvas that can be used to draw on
-class Canvas : public QOpenGLWidget {
-	Q_OBJECT
+class SphereItem : public QGraphicsEllipseItem {
 public:
-	Canvas(int width, int height, QPixmap bg);
-	~Canvas();
-
-	void drawCircle(int x, int y, int radius, QColor color = Qt::black);
-	void drawArrow(int x1, int y1, int x2, int y2);
-
-	void clear();
-
-private:
-	QPixmap *pixmap, bg_image;
-	QPainter* painter;
-
-	friend class GraphicsManager;
-};
-
-class Sphere : public QObject {
-	Q_OBJECT
-public:
-	Sphere(int x, int y, QObject* parent = nullptr);
-	~Sphere();
-
-	void setPos(int x, int y);
+	SphereItem(int radius, QColor color);
+	void updateColor(QColor color);
 	void setRadius(int radius);
 
-	std::tuple<int, int, int> getSphere() const;
-
 private:
-	int sphere_x, sphere_y;
-	int sphere_radius;
+	int m_radius;
 };
 
-class Arrow : public QObject {
-	Q_OBJECT
+class ArrowItem : public QGraphicsLineItem {
 public:
-	Arrow(int x1, int y1, int x2, int y2, QObject* parent = nullptr);
-	~Arrow();
+	ArrowItem(QLineF line);
+	void updateColor(QColor startColor, QColor endColor);
+	void updateArrowHead();
 
-	void setPos(int x1, int y1, int x2, int y2);
-
-	std::tuple<int, int, int, int> getArrow() const;
+	void setLine(QLineF line); // override
 
 private:
-	int arrow_x1, arrow_y1, arrow_x2, arrow_y2;
+	QColor m_startColor;
+	QColor m_endColor;
+	QGraphicsPolygonItem* m_arrowHead;
 };
 
 class GraphicsManager : public QObject {
@@ -66,16 +43,13 @@ public:
 
 	void addSphereArrow(QString name, int x, int y, int x_to, int y_to, QColor color = QColor(255, 255, 204));
 	void rmSphereArrow(QString name);
-
 	void setSpherePos(QString name, int x, int y);
-
 	void setSphereColor(QString name, QColor color);
-
 	void setArrowPointingTo(QString name, int x, int y);
+	void setSphereRadius(QString name, int radius);
 
-	const int width() const;
-	const int height() const;
-
+	int width() const;
+	int height() const;
 	void clear();
 
 public Q_SLOTS:
@@ -85,14 +59,12 @@ public Q_SLOTS:
 private:
 	QGraphicsView* m_view;
 	QGraphicsScene* m_scene;
-	Canvas* m_canvas;
-	QMap<QString, std::tuple<Sphere*, Arrow*, QColor*>> m_objects;
+	QPixmap m_bgPixmap;
+	QMap<QString, std::tuple<SphereItem*, ArrowItem*, QColor>> m_objects;
+	int m_width;
+	int m_height;
 
-	int m_width, m_height;
-
-	void drawSphereArrow(Sphere* sphere, Arrow* arrow, QColor color);
-	void reload();
+	void createBackground();
 };
-
 
 #endif // _GRAPHICSVIEW_HPP
