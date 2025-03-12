@@ -8,15 +8,16 @@
 #include "settings_io.hpp"
 
 #include <QComboBox>
+#include <QDialog>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMutex>
+#include <QPixmap>
+#include <QQueue>
 #include <QTimer>
 #include <QtCharts/QChartView>
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
-#include <qdialog.h>
-#include <qpixmap.h>
-#include <qqueue.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -24,6 +25,10 @@ namespace Ui {
 	class MainWindow;
 }
 QT_END_NAMESPACE
+
+typedef struct {
+	qreal time_sec, X, Y, Z;
+} DataPoint;
 
 class MainWindow : public QMainWindow {
 	Q_OBJECT
@@ -48,6 +53,10 @@ private:
 	QLineSeries* series[3];
 	QList<QPointF> chart_data[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
+	QTimer* chart_update_timer;
+	QQueue<DataPoint> data_queue;
+	QMutex data_queue_mutex;
+
 	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
 	QTimer* mqtt_last_received_timer;
@@ -83,7 +92,9 @@ private slots:
 
 	void updateChartSelect(int index);
 	void reloadChart();
+
 	void addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z);
+	void updateChartData();
 
 	void xySaveButtonClicked();
 	void sensorRecalibrationButtonClicked();

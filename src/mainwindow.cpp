@@ -7,15 +7,12 @@
 #include <QFileDialog>
 #include <QGraphicsEffect>
 #include <QLineEdit>
-#include <QPixmap>
 #include <QPushButton>
-#include <QQueue>
 #include <QStyleFactory>
 #include <QVBoxLayout>
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
-#include <qpoint.h>
 
 
 const int data_series_size = 200;
@@ -37,6 +34,7 @@ MainWindow::MainWindow(QWidget* parent)
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QLineSeries(), new QLineSeries(), new QLineSeries()}
+	, chart_update_timer(new QTimer())
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
@@ -139,6 +137,9 @@ MainWindow::MainWindow(QWidget* parent)
 		this->layout()->addWidget(chartView[i]);
 	}
 	this->reloadChart();
+
+	connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
+	this->chart_update_timer->start(100); // 100ms update interval
 
 	// xy input box
 	QString x_placeholder = "X: 0-%1";
@@ -487,33 +488,22 @@ void MainWindow::reloadChart() {
 	qDebug() << series[0]->points().size() << " " << series[1]->points().size() << " " << series[2]->points().size();
 }
 
-typedef struct {
-	qreal time_sec, X, Y, Z;
-} DataPoint;
 
 void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t Z) {
 	const qreal time_sec = MSecToSec(timestamp_ms - this->start_time);
 	// qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
 
-	// if (time_sec != 0 && time_sec <= series[0]->points().last().x()) {
-	// 	// qDebug() << "Invalid time: " << time_sec << " " << series[0]->points().last().x();
-	// 	return;
-	// }
-	static QQueue<DataPoint> data_queue;
+	data_queue_mutex.lock();
 	data_queue.enqueue({time_sec, (qreal)X, (qreal)Y, (qreal)Z});
+	data_queue_mutex.unlock();
+}
 
-	static qreal last_update_time = 0;
-	if (time_sec > last_update_time && time_sec - last_update_time < 0.1) {
-		// qDebug() << "Time diff too small: " << time_sec - last_update_time;
-		return;
-	}
-	last_update_time = time_sec;
-	// qDebug() << "Chart update range";
-
+void MainWindow::updateChartData() {
 	chartView[0]->setUpdatesEnabled(false);
 	chartView[1]->setUpdatesEnabled(false);
 	chartView[2]->setUpdatesEnabled(false);
 
+	data_queue_mutex.lock();
 	for (const DataPoint& data : data_queue) {
 		// series[0]->append(data.time_sec, data.X);
 		// series[1]->append(data.time_sec, data.Y);
@@ -533,6 +523,7 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 		}
 	}
 	data_queue.clear();
+	data_queue_mutex.unlock();
 
 	series[0]->clear();
 	series[1]->clear();
@@ -545,14 +536,9 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 	chartView[1]->setUpdatesEnabled(true);
 	chartView[2]->setUpdatesEnabled(true);
 
-	const qreal d[3] = {(qreal)X, (qreal)Y, (qreal)Z};
 	for (int i = 0; i < 3; i++) {
-		// if (series[i]->points().size() > data_series_size) {
-		// 	series[i]->remove(0);
-		// }
-
 		qreal minX = series[i]->points().first().x();
-		qreal maxX = time_sec;
+		qreal maxX = series[i]->points().last().x();
 		// qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
 		// qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
 
