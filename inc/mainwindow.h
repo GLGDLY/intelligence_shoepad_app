@@ -16,6 +16,7 @@
 #include <QtCharts/QValueAxis>
 #include <qdialog.h>
 #include <qpixmap.h>
+#include <qqueue.h>
 
 
 QT_BEGIN_NAMESPACE
@@ -44,7 +45,8 @@ private:
 
 	QChartView* chartView[3];
 	QChart* chart[3];
-	QSplineSeries* series[3];
+	QLineSeries* series[3];
+	QList<QPointF> chart_data[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
 	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
@@ -66,6 +68,10 @@ private:
 
 	const qint64 getNowNanoSec() const;
 	const qint64 getNowMicroSec() const;
+
+Q_SIGNALS:
+	void sig_setArrowPointingToScalar(QString name, qreal sca_x, qreal sca_y);
+	void sig_setDefaultSphereColorScalar(QString name, qreal scalar);
 
 private slots:
 	void updateMQTTLastReceived();

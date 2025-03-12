@@ -9,13 +9,16 @@
 #include <QLineEdit>
 #include <QPixmap>
 #include <QPushButton>
+#include <QQueue>
 #include <QStyleFactory>
 #include <QVBoxLayout>
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
+#include <qpoint.h>
 
-const int data_series_size = 500;
+
+const int data_series_size = 200;
 
 const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
 										  "color: #00ff00; background-color: #cfcfcf; border-radius: 5px;"};
@@ -33,7 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
 	, esp_status_label(new QLabel())
 	, chartView{new QChartView(), new QChartView(), new QChartView()}
 	, chart{new QChart(), new QChart(), new QChart()}
-	, series{new QSplineSeries(), new QSplineSeries(), new QSplineSeries()}
+	, series{new QLineSeries(), new QLineSeries(), new QLineSeries()}
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
@@ -209,6 +212,11 @@ MainWindow::MainWindow(QWidget* parent)
 	connect(&recorder, &DataRecorder::playbackData, this, &MainWindow::processData);
 	connect(&recorder, &DataRecorder::replayStarted, this, &MainWindow::clear);
 	connect(&recorder, &DataRecorder::replayFinished, this, &MainWindow::replayFinished);
+
+	connect(this, &MainWindow::sig_setArrowPointingToScalar, this->graphicsManager,
+			&GraphicsManager::setArrowPointingToScalar);
+	connect(this, &MainWindow::sig_setDefaultSphereColorScalar, this->graphicsManager,
+			&GraphicsManager::setDefaultSphereColorScalar);
 }
 
 MainWindow::~MainWindow() {
@@ -291,7 +299,7 @@ void MainWindow::updateMQTTStatus(QMqttClient::ClientState state) {
 
 void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& topic) {
 	// esp/%s/d/%d
-	qDebug() << "Received data: " << message << " from topic: " << topic.name();
+	// qDebug() << "Received data: " << message << " from topic: " << topic.name();
 	bool need_update_index = this->data_map.isEmpty();
 
 	QString key = topic.levels().at(1) + QString("_") + topic.levels().at(3);
@@ -321,7 +329,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 }
 
 void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_t X, int16_t Y, int16_t Z) {
-	qDebug() << "Processing data: " << key << " " << timestamp_ms << " " << T << " " << X << " " << Y << " " << Z;
+	// qDebug() << "Processing data: " << key << " " << timestamp_ms << " " << T << " " << X << " " << Y << " " << Z;
 
 	bool need_reload_chart = false;
 	if (this->data_clear_flags.contains(key) || timestamp_ms == 0) { // timestamp_ms == 0 for timer reset finish
@@ -331,6 +339,14 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 		}
 		this->data_clear_flags.remove(key);
 		need_reload_chart = this->comboBox->currentText() == key;
+	}
+
+	const qreal time_sec = MSecToSec(timestamp_ms - this->start_time);
+	// qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
+
+	if (time_sec != 0 && time_sec <= series[0]->points().last().x()) {
+		// qDebug() << "Invalid time: " << time_sec << " " << series[0]->points().last().x();
+		return;
 	}
 
 	if (!this->data_map.contains(key)) {
@@ -360,9 +376,16 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 		this->updateChartSelect(this->comboBox->currentIndex());
 	}
 
+	static qint64 last_update = 0;
+	if (this->getNowMicroSec() - last_update < 100) { // 100ms update interval
+		return;
+	}
+
 	const qreal scale = 600;
-	this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
-	this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
+	// this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
+	// this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
+	emit sig_setArrowPointingToScalar(key, X / scale, Y / scale);
+	emit sig_setDefaultSphereColorScalar(key, Z / scale);
 }
 
 void MainWindow::updateCalEndStatus(const QString esp_id, const QString sensor_id) {
@@ -392,14 +415,23 @@ void MainWindow::updateChartSelect(int index) {
 	series[0]->clear();
 	series[1]->clear();
 	series[2]->clear();
+	chart_data[0].clear();
+	chart_data[1].clear();
+	chart_data[2].clear();
 	qDebug() << "Series cleared";
 
 	for (auto [timestamp_ms, value] : *data) {
 		const qreal time_sec = MSecToSec(timestamp_ms - this->start_time);
-		series[0]->append(time_sec, std::get<0>(value));
-		series[1]->append(time_sec, std::get<1>(value));
-		series[2]->append(time_sec, std::get<2>(value));
+		// series[0]->append(time_sec, std::get<0>(value));
+		// series[1]->append(time_sec, std::get<1>(value));
+		// series[2]->append(time_sec, std::get<2>(value));
+		chart_data[0].append((QPointF){time_sec, (qreal)std::get<0>(value)});
+		chart_data[1].append((QPointF){time_sec, (qreal)std::get<1>(value)});
+		chart_data[2].append((QPointF){time_sec, (qreal)std::get<2>(value)});
 	}
+	series[0]->replace(chart_data[0]);
+	series[1]->replace(chart_data[1]);
+	series[2]->replace(chart_data[2]);
 	if (this->esp_status_map.contains(key) && this->getNowMicroSec() - this->esp_status_map[key] < secToMSec(5)) {
 		this->esp_status_label->setText("Online");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[1]);
@@ -454,39 +486,85 @@ void MainWindow::reloadChart() {
 	qDebug() << series[0]->points().size() << " " << series[1]->points().size() << " " << series[2]->points().size();
 }
 
+typedef struct {
+	qreal time_sec, X, Y, Z;
+} DataPoint;
+
 void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t Z) {
 	const qreal time_sec = MSecToSec(timestamp_ms - this->start_time);
-	qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
+	// qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
 
-	if (time_sec != 0 && time_sec <= series[0]->points().last().x()) {
-		qDebug() << "Invalid time: " << time_sec << " " << series[0]->points().last().x();
-		return;
-	}
-
-	series[0]->append(time_sec, X);
-	series[1]->append(time_sec, Y);
-	series[2]->append(time_sec, Z);
+	// if (time_sec != 0 && time_sec <= series[0]->points().last().x()) {
+	// 	// qDebug() << "Invalid time: " << time_sec << " " << series[0]->points().last().x();
+	// 	return;
+	// }
+	static QQueue<DataPoint> data_queue;
 
 	static qreal last_update_time = 0;
 	if (time_sec > last_update_time && time_sec - last_update_time < 0.1) {
 		// qDebug() << "Time diff too small: " << time_sec - last_update_time;
+		data_queue.enqueue({time_sec, (qreal)X, (qreal)Y, (qreal)Z});
 		return;
 	}
 	last_update_time = time_sec;
-	qDebug() << "Chart update range";
+	// qDebug() << "Chart update range";
+
+	chartView[0]->setUpdatesEnabled(false);
+	chartView[1]->setUpdatesEnabled(false);
+	chartView[2]->setUpdatesEnabled(false);
+
+	for (const DataPoint& data : data_queue) {
+		// series[0]->append(data.time_sec, data.X);
+		// series[1]->append(data.time_sec, data.Y);
+		// series[2]->append(data.time_sec, data.Z);
+		chart_data[0].append((QPointF){data.time_sec, data.X});
+		chart_data[1].append((QPointF){data.time_sec, data.Y});
+		chart_data[2].append((QPointF){data.time_sec, data.Z});
+		qreal d[3] = {data.X, data.Y, data.Z};
+		for (int i = 0; i < 3; i++) {
+			if (chart_data[i].size() > data_series_size) {
+				chart_data[i].removeFirst();
+			}
+
+			const qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
+			const qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
+			chart_range_y[i] = std::make_tuple(minY, maxY);
+		}
+	}
+	data_queue.clear();
+	if (chart_data[0].size() > 2) {
+		series[0]->clear();
+		series[1]->clear();
+		series[2]->clear();
+		// std::sort(chart_data[0].begin(), chart_data[0].end(),
+		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
+		// std::sort(chart_data[1].begin(), chart_data[1].end(),
+		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
+		// std::sort(chart_data[2].begin(), chart_data[2].end(),
+		// 		  [](const QPointF& a, const QPointF& b) { return a.x() < b.x(); });
+		series[0]->replace(chart_data[0]);
+		series[1]->replace(chart_data[1]);
+		series[2]->replace(chart_data[2]);
+	}
+
+	chartView[0]->setUpdatesEnabled(true);
+	chartView[1]->setUpdatesEnabled(true);
+	chartView[2]->setUpdatesEnabled(true);
 
 	const qreal d[3] = {(qreal)X, (qreal)Y, (qreal)Z};
 	for (int i = 0; i < 3; i++) {
-		if (series[i]->points().size() > data_series_size) {
-			series[i]->remove(0);
-		}
+		// if (series[i]->points().size() > data_series_size) {
+		// 	series[i]->remove(0);
+		// }
 
 		qreal minX = series[i]->points().first().x();
 		qreal maxX = time_sec;
-		qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
-		qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
+		// qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
+		// qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
 
-		chart_range_y[i] = std::make_tuple(minY, maxY);
+		// chart_range_y[i] = std::make_tuple(minY, maxY);
+		qreal minY = std::get<0>(chart_range_y[i]);
+		qreal maxY = std::get<1>(chart_range_y[i]);
 
 		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
 		const qreal padding = ceil((maxY - minY) * 0.2);
@@ -494,9 +572,9 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 
 		chart[i]->update();
 		chartView[i]->update();
-		qDebug() << "Chart " << i << " appended to size: " << series[i]->points().size();
-		qDebug() << "x range: " << minX << " " << maxX;
-		qDebug() << "y range: " << minY << " " << maxY;
+		// qDebug() << "Chart " << i << " appended to size: " << series[i]->points().size();
+		// qDebug() << "x range: " << minX << " " << maxX;
+		// qDebug() << "y range: " << minY << " " << maxY;
 	}
 }
 
@@ -628,7 +706,7 @@ void MainWindow::replayFinished() {
 }
 
 void MainWindow::updateEspStatus(const QString esp_id, bool status) {
-	qDebug() << "Updating ESP status: " << esp_id << " " << status;
+	// qDebug() << "Updating ESP status: " << esp_id << " " << status;
 	this->esp_status_map[esp_id] = this->getNowMicroSec();
 	if (this->comboBox->currentText().startsWith(esp_id)) {
 		this->esp_status_label->setText(status ? "Online" : "Offline");

@@ -22,8 +22,8 @@ DataContainer::~DataContainer() {
 
 void DataContainer::append(qint64 timestamp, int16_t X, int16_t Y, int16_t Z) {
 	this->lock.lockForWrite();
-	qDebug() << "Appending data: " << timestamp << " " << X << " " << Y << " " << Z;
-	qDebug() << "Head: " << head << " Tail: " << tail;
+	// qDebug() << "Appending data: " << timestamp << " " << X << " " << Y << " " << Z;
+	// qDebug() << "Head: " << head << " Tail: " << tail;
 	this->timestamps[tail] = timestamp;
 	this->data_X[tail] = X;
 	this->data_Y[tail] = Y;

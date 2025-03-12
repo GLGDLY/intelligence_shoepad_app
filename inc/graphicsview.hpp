@@ -6,6 +6,7 @@
 #include <QOpenGLWidget>
 #include <qmap.h>
 #include <qpixmap.h>
+#include <qtmetamacros.h>
 
 
 // Base canvas that can be used to draw on
@@ -69,15 +70,17 @@ public:
 	void setSpherePos(QString name, int x, int y);
 
 	void setSphereColor(QString name, QColor color);
-	void setDefaultSphereColorScalar(QString name, qreal scalar);
 
 	void setArrowPointingTo(QString name, int x, int y);
-	void setArrowPointingToScalar(QString name, qreal sca_x, qreal sca_y);
 
 	const int width() const;
 	const int height() const;
 
 	void clear();
+
+public Q_SLOTS:
+	void setArrowPointingToScalar(QString name, qreal sca_x, qreal sca_y);
+	void setDefaultSphereColorScalar(QString name, qreal scalar);
 
 private:
 	QGraphicsView* m_view;

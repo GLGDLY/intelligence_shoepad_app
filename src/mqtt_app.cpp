@@ -53,7 +53,7 @@ void MqttApp::onConnected() {
 // esp/%s/d/%d
 // esp/%s/cal/%d
 void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) {
-	qDebug() << "[MQTT] Received message: " << message << " from topic: " << topic.name();
+	// qDebug() << "[MQTT] Received message: " << message << " from topic: " << topic.name();
 	if (topic.levelCount() < 3) {
 		qDebug() << "[MQTT] Invalid topic level count";
 		return;
@@ -88,7 +88,7 @@ void MqttApp::onMessage(const QByteArray& message, const QMqttTopicName& topic) 
 		}
 		return;
 	} else if (topic.levels().at(2).compare("d") == 0) {
-		qDebug() << "[MQTT] Data update: " << message;
+		// qDebug() << "[MQTT] Data update: " << message;
 		emit dataReceived(message, topic);
 	} else if (topic.levels().at(2).compare("cal") == 0) {
 		qDebug() << "[MQTT] Calibration end: " << message;
