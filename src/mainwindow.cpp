@@ -431,9 +431,11 @@ void MainWindow::updateChartSelect(int index) {
 		chart_data[1].append((QPointF){time_sec, (qreal)std::get<1>(value)});
 		chart_data[2].append((QPointF){time_sec, (qreal)std::get<2>(value)});
 	}
-	series[0]->replace(chart_data[0]);
-	series[1]->replace(chart_data[1]);
-	series[2]->replace(chart_data[2]);
+	if (chart_data[0].size() != 0) {
+		series[0]->replace(chart_data[0]);
+		series[1]->replace(chart_data[1]);
+		series[2]->replace(chart_data[2]);
+	}
 	if (this->esp_status_map.contains(key) && this->getNowMicroSec() - this->esp_status_map[key] < secToMSec(5)) {
 		this->esp_status_label->setText("Online");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[1]);
@@ -524,6 +526,10 @@ void MainWindow::updateChartData() {
 	}
 	data_queue.clear();
 	data_queue_mutex.unlock();
+
+	if (chart_data[0].size() == 0) {
+		return;
+	}
 
 	series[0]->clear();
 	series[1]->clear();
