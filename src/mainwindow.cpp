@@ -591,28 +591,29 @@ void MainWindow::sensorRecalibrationButtonClicked() {
 	// mqtt publish to app/cal/{esp_id}/{sensor_id}
 
 	// construct topic
-	auto args = this->comboBox->currentText().split('_');
-	if (args.size() < 2) {
-		qDebug() << "Invalid device name";
-		return;
-	}
-	QString esp_id = "";
-	for (int i = 0; i < args.size() - 1; i++) {
-		esp_id += args.at(i);
-		if (i != args.size() - 2) {
-			esp_id += "_";
+	for (int i = 0; i < this->comboBox->count(); i++) {
+		auto args = this->comboBox->itemText(i).split('_');
+		if (args.size() < 2) {
+			qDebug() << "Invalid device name";
+			continue;
 		}
+		QString esp_id = "";
+		for (int i = 0; i < args.size() - 1; i++) {
+			esp_id += args.at(i);
+			if (i != args.size() - 2) {
+				esp_id += "_";
+			}
+		}
+		QString topic = "app/cal/%1/%2";
+		topic = topic.arg(esp_id).arg(args.last());
+
+		// publish
+		this->mqtt->publish(QByteArray(), QMqttTopicName(topic));
+
+		// current data will be cleared when calEndReceived signal is received
 	}
-	QString topic = "app/cal/%1/%2";
-	topic = topic.arg(esp_id).arg(args.last());
-
-	// publish
-	this->mqtt->publish(QByteArray(), QMqttTopicName(topic));
-
 	// popout dialog
 	showInfoBox("Recalibration request sent");
-
-	// current data will be cleared when calEndReceived signal is received
 }
 
 /* replay related */
