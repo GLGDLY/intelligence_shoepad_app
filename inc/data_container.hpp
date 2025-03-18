@@ -20,8 +20,8 @@ public:
 	int size() const;	  // return current number of data
 	int capacity() const; // return maximum number of data
 
-	std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> at(int index) const;
-	std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> operator[](int index) const;
+	std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> at(int index);
+	std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> operator[](int index);
 
 	// iterator
 	class iterator {
@@ -32,7 +32,7 @@ public:
 
 		iterator& operator++();
 		iterator operator++(int);
-		std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> operator*() const;
+		std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> operator*() const;
 		bool operator==(const iterator& other) const;
 		bool operator!=(const iterator& other) const;
 

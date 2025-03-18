@@ -2,11 +2,17 @@
 
 #include "udp_app.hpp"
 
+#include <QThread>
 #include <QtLogging>
 #include <Qtmqtt/QMqttMessage>
 
 
-MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this)) {
+MqttApp::MqttApp(QObject* parent)
+	: QObject(parent), client(new QMqttClient(this)), subscription(nullptr), mqtt_thread(new QThread()) {
+	client->moveToThread(mqtt_thread);
+	udp_server.moveToThread(mqtt_thread);
+	mqtt_thread->start();
+
 	QString mqtt_hostname = udp_server.start();
 
 	client->setCleanSession(false);
@@ -25,8 +31,14 @@ MqttApp::MqttApp(QObject* parent) : QObject(parent), client(new QMqttClient(this
 	client->connectToHost();
 }
 
-MqttApp::~MqttApp() { delete client; }
-
+MqttApp::~MqttApp() {
+	delete client;
+	if (mqtt_thread) {
+		mqtt_thread->quit();
+		mqtt_thread->wait();
+		delete mqtt_thread;
+	}
+}
 void MqttApp::publish(const QByteArray& message, const QMqttTopicName& topic) { client->publish(topic, message, 1); }
 
 void MqttApp::onConnected() {

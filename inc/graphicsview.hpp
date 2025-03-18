@@ -41,15 +41,17 @@ public:
 	GraphicsManager(QGraphicsView* view, QObject* parent = nullptr);
 	~GraphicsManager();
 
-	void addSphereArrow(QString name, int x, int y, int x_to, int y_to, QColor color = QColor(255, 255, 204));
+	void addSphereArrow(QString name, int x, int y, int x_to, int y_to, bool is_left,
+						QColor color = QColor(255, 255, 204));
 	void rmSphereArrow(QString name);
-	void setSpherePos(QString name, int x, int y);
+	void setSpherePos(QString name, int x, int y, bool is_left, bool need_flip_arrow);
 	void setSphereColor(QString name, QColor color);
 	void setArrowPointingTo(QString name, int x, int y);
 	void setSphereRadius(QString name, int radius);
 
 	int width() const;
 	int height() const;
+
 	void clear();
 
 public Q_SLOTS:
@@ -65,6 +67,7 @@ private:
 	int m_height;
 
 	void createBackground();
+	void wrap_x(int& x, bool is_left);
 };
 
 #endif // _GRAPHICSVIEW_HPP

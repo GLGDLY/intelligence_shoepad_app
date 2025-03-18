@@ -78,6 +78,8 @@ GraphicsManager::~GraphicsManager() {
 	delete m_scene;
 }
 
+// private
+
 void GraphicsManager::createBackground() {
 	m_bgPixmap = QPixmap("images/insole.jpg");
 	m_bgPixmap = m_bgPixmap.scaled(m_view->size(), Qt::KeepAspectRatio);
@@ -90,18 +92,34 @@ void GraphicsManager::createBackground() {
 	painter.drawRoundedRect(m_bgPixmap.rect(), 10, 10);
 	m_bgPixmap.setMask(mask);
 
+	QPen pen(Qt::black, 4);
+	QLineF line(m_bgPixmap.width() / 2, 0, m_bgPixmap.width() / 2, m_bgPixmap.height());
+	m_scene->addLine(line, pen)->setZValue(1);
+
 	m_width = m_bgPixmap.width();
 	m_height = m_bgPixmap.height();
 	m_scene->addPixmap(m_bgPixmap)->setZValue(0);
 }
 
-void GraphicsManager::addSphereArrow(QString name, int x, int y, int x_to, int y_to, QColor color) {
+void GraphicsManager::wrap_x(int& x, bool is_left) {
+	x = qBound(0, x, m_width / 2);
+	if (!is_left) {
+		x = m_width - x; // flip x
+	}
+}
+
+// public
+
+void GraphicsManager::addSphereArrow(QString name, int x, int y, int x_to, int y_to, bool is_left, QColor color) {
+	wrap_x(x, is_left);
+	wrap_x(x_to, is_left);
+
 	SphereItem* sphere = new SphereItem(20, color);
 	sphere->setPos(x, y);
-	sphere->setZValue(2);
+	sphere->setZValue(3);
 
 	ArrowItem* arrow = new ArrowItem(QLineF(x, y, x_to, y_to));
-	arrow->setZValue(1);
+	arrow->setZValue(2);
 
 	m_scene->addItem(sphere);
 	m_scene->addItem(arrow);
@@ -116,18 +134,28 @@ void GraphicsManager::rmSphereArrow(QString name) {
 	delete std::get<1>(obj);
 }
 
-void GraphicsManager::setSpherePos(QString name, int x, int y) {
+void GraphicsManager::setSpherePos(QString name, int x, int y, bool is_left, bool need_flip_arrow) {
 	if (!m_objects.contains(name))
 		return;
+
+	wrap_x(x, is_left);
+
 	auto& obj = m_objects[name];
 	SphereItem* sphere = std::get<0>(obj);
 	ArrowItem* arrow = std::get<1>(obj);
 
 	QPointF oldPos = sphere->pos();
 	sphere->setPos(x, y);
+
 	QLineF line = arrow->line();
+	auto dx = line.dx();
+	auto dy = line.dy();
 	line.setP1(QPointF(x, y));
-	line.setP2(line.p2() + QPointF(x - oldPos.x(), y - oldPos.y()));
+	if (need_flip_arrow) {
+		line.setP2(QPointF(x - dx, y - dy));
+	} else {
+		line.setP2(QPointF(x + dx, y + dy));
+	}
 	arrow->setLine(line);
 }
 
@@ -166,7 +194,7 @@ void GraphicsManager::setArrowPointingToScalar(QString name, qreal sca_x, qreal 
 void GraphicsManager::setDefaultSphereColorScalar(QString name, qreal scalar) {
 	if (!m_objects.contains(name))
 		return;
-	scalar = qBound(0.0, scalar, 1.0) * (255 + 204);
+	scalar = qBound(0.0, abs(scalar), 1.0) * (255 + 204);
 	QColor base(255, 255, 204);
 	QColor newColor;
 

@@ -43,6 +43,8 @@ private:
 	UServer udp_server;
 	QMqttClient* client;
 	QMqttSubscription* subscription;
+
+	QThread* mqtt_thread;
 };
 
 #endif // _MQTT_APP_HPP

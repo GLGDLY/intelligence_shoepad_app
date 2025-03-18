@@ -14,10 +14,12 @@
 #include <QMutex>
 #include <QPixmap>
 #include <QQueue>
+#include <QRadioButton>
 #include <QTimer>
 #include <QtCharts/QChartView>
 #include <QtCharts/QSplineSeries>
 #include <QtCharts/QValueAxis>
+#include <tuple>
 
 
 QT_BEGIN_NAMESPACE
@@ -54,7 +56,9 @@ private:
 	QList<QPointF> chart_data[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
 	QTimer* chart_update_timer;
+	QThread* chart_update_thread;
 	QQueue<DataPoint> data_queue;
+	bool is_data_queue_updated;
 	QMutex data_queue_mutex;
 
 	QPushButton *mqtt_state_btn, *start_stop_btn;
@@ -68,8 +72,12 @@ private:
 	GraphicsManager* graphicsManager;
 	QLineEdit *x_input, *y_input;
 	QPushButton *xy_save_button, *sensor_recalibration_button;
+	QRadioButton *xy_left_btn, *xy_right_btn;
 
 	QSet<QString> data_clear_flags;
+
+	QMap<QString, bool> sensor_is_left;
+	QMap<QString, std::tuple<int, int>> sensor_pos;
 
 	Settings* settings;
 

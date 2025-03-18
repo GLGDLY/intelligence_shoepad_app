@@ -13,6 +13,7 @@
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
+#include <qdebug.h>
 
 
 const int data_series_size = 200;
@@ -35,6 +36,7 @@ MainWindow::MainWindow(QWidget* parent)
 	, chart{new QChart(), new QChart(), new QChart()}
 	, series{new QLineSeries(), new QLineSeries(), new QLineSeries()}
 	, chart_update_timer(new QTimer())
+	, chart_update_thread(new QThread())
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
@@ -44,6 +46,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, y_input(new QLineEdit())
 	, xy_save_button(new QPushButton("Save"))
 	, sensor_recalibration_button(new QPushButton("Recalibrate"))
+	, xy_left_btn(new QRadioButton("Left"))
+	, xy_right_btn(new QRadioButton("Right"))
 	, data_clear_flags()
 	, settings(new Settings()) {
 	ui->setupUi(this);
@@ -130,7 +134,7 @@ MainWindow::MainWindow(QWidget* parent)
 			default: break;
 		}
 
-		chartView[i]->setRenderHint(QPainter::Antialiasing);
+		// chartView[i]->setRenderHint(QPainter::Antialiasing);
 		chartView[i]->setGeometry(450, comboBox->height() + comboBox->y() + i * chart_height, this->width() - 450,
 								  chart_height);
 		chartView[i]->setChart(chart[i]);
@@ -139,7 +143,10 @@ MainWindow::MainWindow(QWidget* parent)
 	this->reloadChart();
 
 	connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
-	this->chart_update_timer->start(100); // 100ms update interval
+	this->chart_update_timer->setInterval(100); // 100ms update interval
+	this->chart_update_timer->moveToThread(this->chart_update_thread);
+	this->chart_update_thread->start();
+	QMetaObject::invokeMethod(this->chart_update_timer, "start", Qt::QueuedConnection);
 
 	// xy input box
 	QString x_placeholder = "X: 0-%1";
@@ -169,6 +176,17 @@ MainWindow::MainWindow(QWidget* parent)
 	sensor_recalibration_button->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(sensor_recalibration_button);
 	connect(sensor_recalibration_button, &QPushButton::clicked, this, &MainWindow::sensorRecalibrationButtonClicked);
+
+	// xy left or right btn
+	xy_left_btn->setGeometry(380, 5, 50, 20);
+	xy_left_btn->setStyle(QStyleFactory::create("Fusion"));
+	this->layout()->addWidget(xy_left_btn);
+	xy_right_btn->setGeometry(380, 25, 50, 20);
+	xy_right_btn->setStyle(QStyleFactory::create("Fusion"));
+	this->layout()->addWidget(xy_right_btn);
+
+	connect(xy_left_btn, &QRadioButton::clicked, this, &MainWindow::xySaveButtonClicked);
+	connect(xy_right_btn, &QRadioButton::clicked, this, &MainWindow::xySaveButtonClicked);
 
 	// mqtt status bar
 	QGraphicsDropShadowEffect* effect0 = new QGraphicsDropShadowEffect(mqtt_state_btn);
@@ -351,21 +369,59 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 	}
 
 	if (!this->data_map.contains(key)) {
+		bool is_left = true;
+
+		if (this->settings->contains(key)) {
+			auto vars = this->settings->get(key).toArray();
+			if (vars.size() == 3) { // for backward compatibility
+				is_left = vars.at(2).toBool();
+			}
+			int pos_x = vars.at(0).toInt(), pos_y = vars.at(1).toInt();
+			this->sensor_is_left.insert(key, is_left);
+			this->sensor_pos.insert(key, std::make_tuple(pos_x, pos_y));
+			this->graphicsManager->addSphereArrow(key, pos_x, pos_y, pos_x, pos_y, is_left);
+			qDebug() << "pt1: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
+					 << std::get<1>(this->sensor_pos[key]);
+		} else {
+			this->sensor_is_left.insert(key, true);
+			this->sensor_pos.insert(key, std::make_tuple(0, 0));
+			this->graphicsManager->addSphereArrow(key, 0, 0, 0, 0, true);
+		}
+
+		if (!is_left) {
+			X = -X;
+			Y = -Y;
+		}
+
 		this->data_map.insert(key, new DataContainer(data_series_size));
 		this->data_map[key]->append(timestamp_ms, X, Y, Z);
 
 		this->comboBox->addItem(key);
 		this->comboBox->model()->sort(0);
 
-		if (this->settings->contains(key)) {
-			auto vars = this->settings->get(key).toArray();
-			this->graphicsManager->addSphereArrow(key, vars.at(0).toInt(), vars.at(1).toInt(), X, Y);
-		} else {
-			this->graphicsManager->addSphereArrow(key, 0, 0, 0, 0);
+		if (this->comboBox->currentText() == key) {
+			if (this->sensor_is_left.contains(key)) {
+				if (this->sensor_is_left[key]) {
+					this->xy_left_btn->setChecked(true);
+				} else {
+					this->xy_right_btn->setChecked(true);
+				}
+			} else {
+				this->xy_left_btn->setChecked(true);
+			}
+			qDebug() << "pt2: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
+					 << std::get<1>(this->sensor_pos[key]);
+			this->x_input->setText(QString::number(std::get<0>(this->sensor_pos[key])));
+			this->y_input->setText(QString::number(std::get<1>(this->sensor_pos[key])));
 		}
 
 		qDebug() << "new device added: " << key;
 	} else {
+		if (!this->sensor_is_left[key]) {
+			X = -X;
+			Y = -Y;
+		}
+
 		this->data_map[key]->append(timestamp_ms, X, Y, Z);
 		if (this->comboBox->currentText() == key) {
 			this->addChartData(timestamp_ms, X, Y, Z);
@@ -497,15 +553,18 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 
 	data_queue_mutex.lock();
 	data_queue.enqueue({time_sec, (qreal)X, (qreal)Y, (qreal)Z});
+	is_data_queue_updated = true;
 	data_queue_mutex.unlock();
 }
 
 void MainWindow::updateChartData() {
-	chartView[0]->setUpdatesEnabled(false);
-	chartView[1]->setUpdatesEnabled(false);
-	chartView[2]->setUpdatesEnabled(false);
-
 	data_queue_mutex.lock();
+	if (!is_data_queue_updated) {
+		data_queue_mutex.unlock();
+		return;
+	}
+	is_data_queue_updated = false;
+
 	for (const DataPoint& data : data_queue) {
 		// series[0]->append(data.time_sec, data.X);
 		// series[1]->append(data.time_sec, data.Y);
@@ -530,6 +589,10 @@ void MainWindow::updateChartData() {
 	if (chart_data[0].size() == 0) {
 		return;
 	}
+
+	chartView[0]->setUpdatesEnabled(false);
+	chartView[1]->setUpdatesEnabled(false);
+	chartView[2]->setUpdatesEnabled(false);
 
 	series[0]->clear();
 	series[1]->clear();
@@ -568,21 +631,40 @@ void MainWindow::xySaveButtonClicked() {
 	qDebug() << "Save button clicked";
 	bool ok;
 	int x = x_input->text().toInt(&ok);
+	x = qBound(0, x, this->graphicsManager->width() / 2);
 	if (!ok) {
 		qDebug() << "Invalid X input";
 		return;
 	}
 	int y = y_input->text().toInt(&ok);
+	y = qBound(0, y, this->graphicsManager->height());
 	if (!ok) {
 		qDebug() << "Invalid Y input";
 		return;
 	}
 	auto key = this->comboBox->currentText();
-	this->graphicsManager->setSpherePos(key, fmin(fmax(x, 0), this->graphicsManager->width()),
-										fmin(fmax(y, 0), this->graphicsManager->height()));
-	QJsonArray arr = {x, y};
+	bool is_left = this->xy_left_btn->isChecked();
+	bool is_left_changed = (is_left != this->sensor_is_left[key]);
+	this->graphicsManager->setSpherePos(key, x, y, is_left, is_left_changed);
+	QJsonArray arr = {x, y, is_left};
 	this->settings->set(key, arr);
 	this->settings->save();
+
+	this->sensor_is_left[key] = is_left;
+	this->sensor_pos[key] = std::make_tuple(x, y);
+
+	// change all data in data_map, and if current device is selected, update chart
+	if (is_left_changed) {
+		DataContainer* data = this->data_map[key];
+		if (data) {
+			for (auto [timestamp_ms, value] : *data) {
+				auto [X, Y, Z] = value;
+				X = -X;
+				Y = -Y;
+			}
+			this->updateChartSelect(this->comboBox->currentIndex());
+		}
+	}
 }
 
 void MainWindow::sensorRecalibrationButtonClicked() {

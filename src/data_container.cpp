@@ -41,17 +41,18 @@ int DataContainer::size() const { return (tail - head + _capacity) % _capacity; 
 
 int DataContainer::capacity() const { return _capacity; }
 
-std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> DataContainer::at(int index) const {
+std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> DataContainer::at(int index) {
 	if (index < 0 || index >= this->size()) {
 		qDebug() << "Index out of range";
 		throw std::out_of_range("Index out of range");
 	}
 
 	const int target_i = (head + index) % _capacity;
-	return std::make_pair(timestamps[target_i], std::make_tuple(data_X[target_i], data_Y[target_i], data_Z[target_i]));
+	return std::make_pair(timestamps[target_i],
+						  std::forward_as_tuple(data_X[target_i], data_Y[target_i], data_Z[target_i]));
 }
 
-std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> DataContainer::operator[](int index) const {
+std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> DataContainer::operator[](int index) {
 	return this->at(index);
 }
 
@@ -72,13 +73,13 @@ DataContainer::iterator DataContainer::iterator::operator++(int) {
 	return tmp;
 }
 
-std::pair<qint64, std::tuple<int16_t, int16_t, int16_t>> DataContainer::iterator::operator*() const {
+std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> DataContainer::iterator::operator*() const {
 	qDebug() << "index: " << index << " head: " << container->head << " tail: " << container->tail;
 	qDebug() << "timestamps: " << container->timestamps[index] << " data: " << container->data_X[index] << " "
 			 << container->data_Y[index] << " " << container->data_Z[index];
 	return std::make_pair(
 		container->timestamps[index],
-		std::make_tuple(container->data_X[index], container->data_Y[index], container->data_Z[index]));
+		std::forward_as_tuple(container->data_X[index], container->data_Y[index], container->data_Z[index]));
 }
 
 bool DataContainer::iterator::operator==(const iterator& other) const { return index == other.index; }
