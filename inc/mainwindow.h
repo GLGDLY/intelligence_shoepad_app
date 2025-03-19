@@ -32,6 +32,14 @@ typedef struct {
 	qreal time_sec, X, Y, Z;
 } DataPoint;
 
+typedef enum {
+	ROT_0,
+	ROT_90,
+	ROT_180,
+	ROT_270,
+	NUM_OF_ROTATION,
+} Rotation;
+
 class MainWindow : public QMainWindow {
 	Q_OBJECT
 
@@ -72,12 +80,14 @@ private:
 	GraphicsManager* graphicsManager;
 	QLineEdit *x_input, *y_input;
 	QPushButton *xy_save_button, *sensor_recalibration_button;
+	QPushButton* rot_button;
 	QRadioButton *xy_left_btn, *xy_right_btn;
 
 	QSet<QString> data_clear_flags;
 
 	QMap<QString, bool> sensor_is_left;
 	QMap<QString, std::tuple<int, int>> sensor_pos;
+	QMap<QString, Rotation> sensor_rot;
 
 	Settings* settings;
 
@@ -85,10 +95,6 @@ private:
 
 	const qint64 getNowNanoSec() const;
 	const qint64 getNowMicroSec() const;
-
-Q_SIGNALS:
-	void sig_setArrowPointingToScalar(QString name, qreal sca_x, qreal sca_y);
-	void sig_setDefaultSphereColorScalar(QString name, qreal scalar);
 
 private slots:
 	void updateMQTTLastReceived();
@@ -106,6 +112,7 @@ private slots:
 
 	void xySaveButtonClicked();
 	void sensorRecalibrationButtonClicked();
+	void rotButtonClicked();
 
 	// replay related
 	void mqttStateBtnClicked();

@@ -48,6 +48,7 @@ public:
 	void setSphereColor(QString name, QColor color);
 	void setArrowPointingTo(QString name, int x, int y);
 	void setSphereRadius(QString name, int radius);
+	void setArrowRot90(QString name, int num_of_90);
 
 	int width() const;
 	int height() const;

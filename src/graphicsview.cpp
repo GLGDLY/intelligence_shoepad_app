@@ -3,6 +3,7 @@
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPen>
+#include <qgraphicsitem.h>
 #include <qmath.h>
 
 
@@ -66,7 +67,7 @@ void ArrowItem::setLine(QLineF line) {
 
 GraphicsManager::GraphicsManager(QGraphicsView* view, QObject* parent) : QObject(parent), m_view(view) {
 	m_view->setViewport(new QOpenGLWidget());
-	m_view->setRenderHint(QPainter::Antialiasing);
+	// m_view->setRenderHint(QPainter::Antialiasing);
 	m_scene = new QGraphicsScene(this);
 	m_scene->setBackgroundBrush(QBrush(QColor(0xf0, 0xf0, 0xf0)));
 	m_view->setScene(m_scene);
@@ -179,6 +180,16 @@ void GraphicsManager::setArrowPointingTo(QString name, int x, int y) {
 	auto& obj = m_objects[name];
 	QPointF pos = std::get<0>(obj)->pos();
 	std::get<1>(obj)->setLine(QLineF(pos.x(), pos.y(), x, y));
+}
+
+void GraphicsManager::setArrowRot90(QString name, int num_of_90) {
+	if (!m_objects.contains(name))
+		return;
+	auto& obj = m_objects[name];
+	QLineF line = std::get<1>(obj)->line();
+
+	line.setAngle((int)(line.angle() - num_of_90 * 90 + 360) % 360);
+	std::get<1>(obj)->setLine(line);
 }
 
 void GraphicsManager::setArrowPointingToScalar(QString name, qreal sca_x, qreal sca_y) {

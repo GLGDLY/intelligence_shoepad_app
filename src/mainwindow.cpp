@@ -46,6 +46,7 @@ MainWindow::MainWindow(QWidget* parent)
 	, y_input(new QLineEdit())
 	, xy_save_button(new QPushButton("Save"))
 	, sensor_recalibration_button(new QPushButton("Recalibrate"))
+	, rot_button(new QPushButton("Rotate"))
 	, xy_left_btn(new QRadioButton("Left"))
 	, xy_right_btn(new QRadioButton("Right"))
 	, data_clear_flags()
@@ -151,37 +152,46 @@ MainWindow::MainWindow(QWidget* parent)
 	// xy input box
 	QString x_placeholder = "X: 0-%1";
 	QString y_placeholder = "Y: 0-%1";
-	x_input->setPlaceholderText(x_placeholder.arg(this->graphicsManager->width()));
-	x_input->setGeometry(10, 10, 95, 25);
+	x_input->setPlaceholderText(x_placeholder.arg(this->graphicsManager->width() / 2));
+	x_input->setGeometry(10, 10, 60, 25);
 	x_input->setStyleSheet("QLineEdit { background-color:rgb(202, 202, 202); color: #000; }");
 	x_input->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(x_input);
 
 	y_input->setPlaceholderText(y_placeholder.arg(this->graphicsManager->height()));
-	y_input->setGeometry(110, 10, 95, 25);
+	y_input->setGeometry(75, 10, 60, 25);
 	y_input->setStyleSheet("QLineEdit { background-color: rgb(202, 202, 202); color: #000; }");
 	y_input->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(y_input);
 
 	// xy save button
-	xy_save_button->setGeometry(210, 10, 50, 25);
+	xy_save_button->setGeometry(140, 10, 50, 25);
 	xy_save_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
 	xy_save_button->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(xy_save_button);
 	connect(xy_save_button, &QPushButton::clicked, this, &MainWindow::xySaveButtonClicked);
 
 	// sensor recalibration button
-	sensor_recalibration_button->setGeometry(270, 10, 100, 25);
+	sensor_recalibration_button->setGeometry(195, 10, 100, 25);
 	sensor_recalibration_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
 	sensor_recalibration_button->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(sensor_recalibration_button);
 	connect(sensor_recalibration_button, &QPushButton::clicked, this, &MainWindow::sensorRecalibrationButtonClicked);
 
+	// Rotate button
+	rot_button->setGeometry(300, 10, 50, 25);
+	rot_button->setStyleSheet("QPushButton { background-color: #a9a9a9; color: #000; }");
+	rot_button->setStyle(QStyleFactory::create("Fusion"));
+	this->layout()->addWidget(rot_button);
+	connect(rot_button, &QPushButton::clicked, this, &MainWindow::rotButtonClicked);
+
 	// xy left or right btn
-	xy_left_btn->setGeometry(380, 5, 50, 20);
+	xy_left_btn->setGeometry(355, 5, 50, 20);
+	xy_left_btn->setStyleSheet("QRadioButton { color: #000; }");
 	xy_left_btn->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(xy_left_btn);
-	xy_right_btn->setGeometry(380, 25, 50, 20);
+	xy_right_btn->setGeometry(355, 25, 50, 20);
+	xy_right_btn->setStyleSheet("QRadioButton { color: #000; }");
 	xy_right_btn->setStyle(QStyleFactory::create("Fusion"));
 	this->layout()->addWidget(xy_right_btn);
 
@@ -231,11 +241,6 @@ MainWindow::MainWindow(QWidget* parent)
 	connect(&recorder, &DataRecorder::playbackData, this, &MainWindow::processData);
 	connect(&recorder, &DataRecorder::replayStarted, this, &MainWindow::clear);
 	connect(&recorder, &DataRecorder::replayFinished, this, &MainWindow::replayFinished);
-
-	connect(this, &MainWindow::sig_setArrowPointingToScalar, this->graphicsManager,
-			&GraphicsManager::setArrowPointingToScalar);
-	connect(this, &MainWindow::sig_setDefaultSphereColorScalar, this->graphicsManager,
-			&GraphicsManager::setDefaultSphereColorScalar);
 }
 
 MainWindow::~MainWindow() {
@@ -368,23 +373,29 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 		return;
 	}
 
-	if (!this->data_map.contains(key)) {
+	if (!this->data_map.contains(key)) { // just on start
 		bool is_left = true;
+		Rotation rot = ROT_0;
 
 		if (this->settings->contains(key)) {
 			auto vars = this->settings->get(key).toArray();
 			if (vars.size() == 3) { // for backward compatibility
 				is_left = vars.at(2).toBool();
+			} else if (vars.size() == 4) {
+				is_left = vars.at(2).toBool();
+				rot = (Rotation)vars.at(3).toInt();
 			}
 			int pos_x = vars.at(0).toInt(), pos_y = vars.at(1).toInt();
 			this->sensor_is_left.insert(key, is_left);
 			this->sensor_pos.insert(key, std::make_tuple(pos_x, pos_y));
+			this->sensor_rot.insert(key, rot);
 			this->graphicsManager->addSphereArrow(key, pos_x, pos_y, pos_x, pos_y, is_left);
-			qDebug() << "pt1: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
-					 << std::get<1>(this->sensor_pos[key]);
+			// qDebug() << "pt1: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
+			// 		 << std::get<1>(this->sensor_pos[key]);
 		} else {
 			this->sensor_is_left.insert(key, true);
 			this->sensor_pos.insert(key, std::make_tuple(0, 0));
+			this->sensor_rot.insert(key, ROT_0);
 			this->graphicsManager->addSphereArrow(key, 0, 0, 0, 0, true);
 		}
 
@@ -409,8 +420,8 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 			} else {
 				this->xy_left_btn->setChecked(true);
 			}
-			qDebug() << "pt2: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
-					 << std::get<1>(this->sensor_pos[key]);
+			// qDebug() << "pt2: " << this->sensor_is_left[key] << " " << std::get<0>(this->sensor_pos[key]) << " "
+			// 		 << std::get<1>(this->sensor_pos[key]);
 			this->x_input->setText(QString::number(std::get<0>(this->sensor_pos[key])));
 			this->y_input->setText(QString::number(std::get<1>(this->sensor_pos[key])));
 		}
@@ -420,6 +431,26 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 		if (!this->sensor_is_left[key]) {
 			X = -X;
 			Y = -Y;
+		}
+		switch (this->sensor_rot[key]) { // clockwise
+			case ROT_90: {
+				int tmp = X;
+				X = Y;
+				Y = -tmp;
+				break;
+			}
+			case ROT_180: {
+				X = -X;
+				Y = -Y;
+				break;
+			}
+			case ROT_270: {
+				int tmp = X;
+				X = -Y;
+				Y = tmp;
+				break;
+			}
+			default: break;
 		}
 
 		this->data_map[key]->append(timestamp_ms, X, Y, Z);
@@ -440,10 +471,9 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 	last_update = this->getNowMicroSec();
 
 	const qreal scale = 600;
-	// this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
-	// this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
-	emit sig_setArrowPointingToScalar(key, X / scale, Y / scale);
-	emit sig_setDefaultSphereColorScalar(key, Z / scale);
+	this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
+	this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
+	// this->graphicsManager->setArrowRot90(key, this->sensor_rot[key]);
 }
 
 void MainWindow::updateCalEndStatus(const QString esp_id, const QString sensor_id) {
@@ -470,6 +500,10 @@ void MainWindow::updateChartSelect(int index) {
 		return;
 	}
 	// qDebug() << "Data size: " << data->size();
+	data_queue_mutex.lock();
+	data_queue.clear();
+	data_queue_mutex.unlock();
+
 	series[0]->clear();
 	series[1]->clear();
 	series[2]->clear();
@@ -498,6 +532,23 @@ void MainWindow::updateChartSelect(int index) {
 	} else {
 		this->esp_status_label->setText("Offline");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[0]);
+	}
+
+	if (this->sensor_pos.contains(key)) {
+		this->x_input->setText(QString::number(std::get<0>(this->sensor_pos[key])));
+		this->y_input->setText(QString::number(std::get<1>(this->sensor_pos[key])));
+	} else {
+		this->x_input->setText("");
+		this->y_input->setText("");
+	}
+	if (this->sensor_is_left.contains(key)) {
+		if (this->sensor_is_left[key]) {
+			this->xy_left_btn->setChecked(true);
+		} else {
+			this->xy_right_btn->setChecked(true);
+		}
+	} else {
+		this->xy_left_btn->setChecked(true);
 	}
 
 	qDebug() << "Data appended, reloading chart";
@@ -643,10 +694,14 @@ void MainWindow::xySaveButtonClicked() {
 		return;
 	}
 	auto key = this->comboBox->currentText();
+
 	bool is_left = this->xy_left_btn->isChecked();
 	bool is_left_changed = (is_left != this->sensor_is_left[key]);
 	this->graphicsManager->setSpherePos(key, x, y, is_left, is_left_changed);
-	QJsonArray arr = {x, y, is_left};
+
+	Rotation rot = this->sensor_rot[key];
+
+	QJsonArray arr = {x, y, is_left, (int)rot};
 	this->settings->set(key, arr);
 	this->settings->save();
 
@@ -696,6 +751,18 @@ void MainWindow::sensorRecalibrationButtonClicked() {
 	}
 	// popout dialog
 	showInfoBox("Recalibration request sent");
+}
+
+void MainWindow::rotButtonClicked() {
+	qDebug() << "Rotate button clicked";
+	QString current_device = this->comboBox->currentText();
+	if (!this->sensor_rot.contains(current_device)) {
+		qDebug() << "Invalid device";
+		return;
+	}
+	this->sensor_rot[current_device] = (Rotation)((this->sensor_rot[current_device] + 1) % NUM_OF_ROTATION);
+	this->graphicsManager->setArrowRot90(current_device, 1);
+	this->xySaveButtonClicked(); // save everything
 }
 
 /* replay related */

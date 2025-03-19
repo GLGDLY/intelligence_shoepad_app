@@ -74,9 +74,9 @@ DataContainer::iterator DataContainer::iterator::operator++(int) {
 }
 
 std::pair<qint64, std::tuple<int16_t&, int16_t&, int16_t&>> DataContainer::iterator::operator*() const {
-	qDebug() << "index: " << index << " head: " << container->head << " tail: " << container->tail;
-	qDebug() << "timestamps: " << container->timestamps[index] << " data: " << container->data_X[index] << " "
-			 << container->data_Y[index] << " " << container->data_Z[index];
+	// qDebug() << "index: " << index << " head: " << container->head << " tail: " << container->tail;
+	// qDebug() << "timestamps: " << container->timestamps[index] << " data: " << container->data_X[index] << " "
+	// 		 << container->data_Y[index] << " " << container->data_Z[index];
 	return std::make_pair(
 		container->timestamps[index],
 		std::forward_as_tuple(container->data_X[index], container->data_Y[index], container->data_Z[index]));
