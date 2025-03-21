@@ -78,6 +78,7 @@ void ArrowItem::setLine(QLineF line) {
 GraphicsManager::GraphicsManager(QGraphicsView* view, QObject* parent)
 	: QObject(parent), m_view(view), m_thread(new QThread) {
 	m_thread->start();
+	moveToThread(m_thread);
 	m_view->setViewport(new QOpenGLWidget());
 	m_view->setRenderHint(QPainter::Antialiasing, false);
 	m_scene = new QGraphicsScene(this);
