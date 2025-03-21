@@ -9,19 +9,22 @@
 
 SphereItem::SphereItem(int radius, QColor color)
 	: QGraphicsEllipseItem(-radius, -radius, 2 * radius, 2 * radius), m_radius(radius) {
-	QRadialGradient gradient(0, 0, radius);
-	gradient.setColorAt(0, Qt::gray);
-	gradient.setColorAt(1, color);
-	setBrush(gradient);
+	// QRadialGradient gradient(0, 0, radius);
+	// gradient.setColorAt(0, Qt::gray);
+	// gradient.setColorAt(1, color);
+	// setBrush(gradient);
+	setBrush(QBrush(color));
 	setPen(Qt::NoPen);
 	setFlag(QGraphicsItem::ItemIsMovable, false);
 }
 
 void SphereItem::updateColor(QColor color) {
-	QRadialGradient gradient(0, 0, m_radius);
-	gradient.setColorAt(0, Qt::gray);
-	gradient.setColorAt(1, color);
-	setBrush(gradient);
+	// QRadialGradient gradient(0, 0, m_radius);
+	// gradient.setColorAt(0, Qt::gray);
+	// gradient.setColorAt(1, color);
+	// setBrush(gradient);
+
+	setBrush(QBrush(color));
 }
 
 void SphereItem::setRadius(int radius) {
@@ -38,13 +41,19 @@ ArrowItem::ArrowItem(QLineF line) : QGraphicsLineItem(line), m_startColor(Qt::wh
 
 void ArrowItem::updateArrowHead() {
 	QLineF l = line();
-	qreal arrowSize = 10;
+	static const qreal arrowSize = 10;
 	double angle = std::atan2(l.dy(), l.dx());
+
+	static const double cos_plus = cos(M_PI / 6);
+	static const double sin_plus = sin(M_PI / 6);
+	static const double cos_minus = cos(-M_PI / 6);
+	static const double sin_minus = sin(-M_PI / 6);
 
 	QPointF arrowP1 = l.p2() - QPointF(cos(angle + M_PI / 6) * arrowSize, sin(angle + M_PI / 6) * arrowSize);
 	QPointF arrowP2 = l.p2() - QPointF(cos(angle - M_PI / 6) * arrowSize, sin(angle - M_PI / 6) * arrowSize);
 
 	QPolygonF arrowHead;
+	arrowHead.reserve(3); // Pre-allocate for 3 points
 	arrowHead << l.p2() << arrowP1 << arrowP2;
 	m_arrowHead->setPolygon(arrowHead);
 
@@ -65,9 +74,12 @@ void ArrowItem::setLine(QLineF line) {
 	updateArrowHead();
 }
 
-GraphicsManager::GraphicsManager(QGraphicsView* view, QObject* parent) : QObject(parent), m_view(view) {
+
+GraphicsManager::GraphicsManager(QGraphicsView* view, QObject* parent)
+	: QObject(parent), m_view(view), m_thread(new QThread) {
+	m_thread->start();
 	m_view->setViewport(new QOpenGLWidget());
-	// m_view->setRenderHint(QPainter::Antialiasing);
+	m_view->setRenderHint(QPainter::Antialiasing, false);
 	m_scene = new QGraphicsScene(this);
 	m_scene->setBackgroundBrush(QBrush(QColor(0xf0, 0xf0, 0xf0)));
 	m_view->setScene(m_scene);
@@ -131,8 +143,18 @@ void GraphicsManager::rmSphereArrow(QString name) {
 	if (!m_objects.contains(name))
 		return;
 	auto obj = m_objects.take(name);
-	delete std::get<0>(obj);
-	delete std::get<1>(obj);
+	SphereItem* sphere = std::get<0>(obj);
+	ArrowItem* arrow = std::get<1>(obj);
+
+	if (sphere) {
+		m_scene->removeItem(sphere);
+		delete sphere;
+	}
+
+	if (arrow) {
+		m_scene->removeItem(arrow);
+		delete arrow;
+	}
 }
 
 void GraphicsManager::setSpherePos(QString name, int x, int y, bool is_left, bool need_flip_arrow) {
@@ -205,14 +227,14 @@ void GraphicsManager::setArrowPointingToScalar(QString name, qreal sca_x, qreal 
 void GraphicsManager::setDefaultSphereColorScalar(QString name, qreal scalar) {
 	if (!m_objects.contains(name))
 		return;
-	scalar = qBound(0.0, abs(scalar), 1.0) * (255 + 204);
-	QColor base(255, 255, 204);
-	QColor newColor;
 
+	scalar = qBound(0.0, abs(scalar), 1.0) * 459;
+
+	QColor newColor;
 	if (scalar <= 204) {
-		newColor = QColor(base.red(), base.green(), base.blue() - scalar);
+		newColor = QColor(255, 255, 204 - qRound(scalar));
 	} else {
-		newColor = QColor(base.red(), base.green() - (scalar - 204), 0);
+		newColor = QColor(255, 255 - qRound(scalar - 204), 0);
 	}
 	setSphereColor(name, newColor);
 }

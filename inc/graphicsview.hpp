@@ -8,6 +8,7 @@
 #include <QMap>
 #include <QOpenGLWidget>
 #include <QPixmap>
+#include <qthread.h>
 #include <tuple>
 
 
@@ -63,9 +64,10 @@ private:
 	QGraphicsView* m_view;
 	QGraphicsScene* m_scene;
 	QPixmap m_bgPixmap;
-	QMap<QString, std::tuple<SphereItem*, ArrowItem*, QColor>> m_objects;
+	QHash<QString, std::tuple<SphereItem*, ArrowItem*, QColor>> m_objects;
 	int m_width;
 	int m_height;
+	QThread* m_thread;
 
 	void createBackground();
 	void wrap_x(int& x, bool is_left);

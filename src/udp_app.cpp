@@ -52,7 +52,7 @@ QString UServer::start() {
 	qDebug() << "[UDP] Starting server";
 
 	// create server
-	if (!udpSocket->bind(QHostAddress::Any, 1884, QUdpSocket::ShareAddress)) {
+	if (!udpSocket->bind(1884, QUdpSocket::ShareAddress)) {
 		qDebug() << "[UDP] Failed to bind socket";
 		MsgBox box(nullptr, QMessageBox::Icon::Critical, "Error", "Failed to bind socket", QMessageBox::Ok,
 				   QMessageBox::Ok);
