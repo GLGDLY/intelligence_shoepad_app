@@ -8,9 +8,8 @@
 
 
 MqttApp::MqttApp(QObject* parent)
-	: QObject(parent), client(new QMqttClient(this)), subscription(nullptr), mqtt_thread(new QThread()) {
+	: QObject(parent), client(new QMqttClient()), subscription(nullptr), mqtt_thread(new QThread()) {
 	client->moveToThread(mqtt_thread);
-	udp_server.moveToThread(mqtt_thread);
 	mqtt_thread->start();
 
 	QString mqtt_hostname = udp_server.start();

@@ -261,12 +261,10 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow() {
 	// Stop and clean up threads
 	if (chart_update_thread->isRunning()) {
-		chart_update_timer->stop();
 		chart_update_thread->quit();
 		chart_update_thread->wait();
 	}
 	if (graphics_update_thread->isRunning()) {
-		graphics_update_timer->stop();
 		graphics_update_thread->quit();
 		graphics_update_thread->wait();
 	}
@@ -300,7 +298,7 @@ void MainWindow::updateMQTTLastReceived() {
 	// 	this->updateData(QByteArray("500/200,300,400,500"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	// this->updateCalEndStatus("test_esp", "0");
 	// 	this->updateData(QByteArray("1000/100,900,800,700"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("2000/400,500,600,700"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("2000/4000,5000,6000,7000"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	do_once = false;
 	// }
 	/* Testing */

@@ -2,12 +2,12 @@
 
 #include "mainwindow.h"
 
-ChartWorker::ChartWorker(QObject* parent) : QObject(parent) {}
+ChartWorker::ChartWorker(void* mainwindow, QObject* parent) : main_window(mainwindow), QObject(parent) {}
 
 ChartWorker::~ChartWorker() {}
 
 void ChartWorker::updateChartData() {
-	MainWindow* main_window = (MainWindow*)this->parent();
+	MainWindow* main_window = (MainWindow*)this->main_window;
 	main_window->data_queue_mutex.lock();
 	if (!main_window->is_data_queue_updated) {
 		main_window->data_queue_mutex.unlock();

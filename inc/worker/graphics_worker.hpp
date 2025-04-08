@@ -6,11 +6,14 @@
 class GraphicsWorker : public QObject {
 	Q_OBJECT
 public:
-	GraphicsWorker(QObject* parent);
+	GraphicsWorker(void* mainwindow, QObject* parent = nullptr);
 	~GraphicsWorker();
 
 public Q_SLOTS:
 	void updateGraphicsData();
+
+private:
+	void* main_window;
 };
 
 #endif // _GRAPHICS_WORKER_H
