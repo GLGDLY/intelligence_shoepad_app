@@ -58,6 +58,12 @@ HeatmapManager::HeatmapManager(int width, int height, int cellSize, int radiatio
 			m_cellScalars[idx][i] = new int[cellHeight]();
 		}
 	}
+	for (int i = 0; i < cellWidth; ++i) {
+		for (int j = 0; j < cellHeight; ++j) {
+			m_cellScalars[HEATMAP_FRAME_NEXT][i][j] = 0;
+			m_cellScalars[HEATMAP_FRAME_CURRENT][i][j] = -1;
+		}
+	}
 }
 
 HeatmapManager::~HeatmapManager() {
@@ -80,24 +86,19 @@ QColor HeatmapManager::cvtColor(const int scalar) const {
 }
 
 void HeatmapManager::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) {
-	static bool do_once = true; // ensure update on startup
 	painter->setRenderHint(QPainter::Antialiasing, false);
 	painter->setPen(Qt::NoPen);
 	painter->setBrush(Qt::NoBrush);
 	painter->setOpacity(0.5);
 	for (int i = 0; i < m_width / m_cellSize; ++i) {
 		for (int j = 0; j < m_height / m_cellSize; ++j) {
-			if (m_cellScalars[HEATMAP_FRAME_NEXT][i][j] == m_cellScalars[HEATMAP_FRAME_CURRENT][i][j] && !do_once) {
-				continue;
-			}
+			if (m_cellScalars[HEATMAP_FRAME_NEXT][i][j] == m_cellScalars[HEATMAP_FRAME_CURRENT][i][j]) {}
 			QColor color = cvtColor(m_cellScalars[HEATMAP_FRAME_NEXT][i][j]);
 			painter->setBrush(color);
 			painter->drawRect(i * m_cellSize, j * m_cellSize, m_cellSize, m_cellSize);
 			m_cellScalars[HEATMAP_FRAME_CURRENT][i][j] = m_cellScalars[HEATMAP_FRAME_NEXT][i][j];
-			// m_cellScalars[HEATMAP_FRAME_NEXT][i][j] = 0;
 		}
 	}
-	do_once = false;
 }
 
 void HeatmapManager::setCellScalar(int xPos, int yPos, const int scalar) {

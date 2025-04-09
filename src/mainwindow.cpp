@@ -149,7 +149,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
 	connect(this->chart_update_timer, &QTimer::timeout, this->chart_worker, &ChartWorker::updateChartData,
 			Qt::QueuedConnection);
-	this->chart_update_timer->setInterval(100); // 10fps update interval
+	this->chart_update_timer->setInterval(50); // 10fps update interval
 	this->chart_worker->moveToThread(this->chart_update_thread);
 	this->chart_update_timer->moveToThread(this->chart_update_thread);
 	this->chart_update_thread->start();
@@ -158,7 +158,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// connect(this->graphics_update_timer, &QTimer::timeout, this, &MainWindow::updateGraphicsData);
 	connect(this->graphics_update_timer, &QTimer::timeout, this->graphics_worker, &GraphicsWorker::updateGraphicsData,
 			Qt::QueuedConnection);
-	this->graphics_update_timer->setInterval(20); // 50fps update interval
+	this->graphics_update_timer->setInterval(50); // 50fps update interval
 	this->graphics_worker->moveToThread(this->graphics_update_thread);
 	this->graphics_update_timer->moveToThread(this->graphics_update_thread);
 	this->graphics_update_thread->start();
@@ -506,9 +506,9 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 	}
 	auto data = this->graphics_data[key];
 	auto num = this->graphics_data_num[key];
-	std::get<0>(data) += X / scale;
-	std::get<1>(data) += Y / scale;
-	std::get<2>(data) += Z / scale;
+	std::get<0>(data) += X; // / scale;
+	std::get<1>(data) += Y; // / scale;
+	std::get<2>(data) += Z; // / scale;
 	this->graphics_data[key] = data;
 	this->graphics_data_num[key] = num + 1;
 	this->graphics_mutex.unlock();

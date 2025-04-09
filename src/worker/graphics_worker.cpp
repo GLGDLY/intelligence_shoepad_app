@@ -14,6 +14,7 @@ void GraphicsWorker::updateGraphicsData() {
 	main_window->graphics_mutex.lock();
 	for (auto key : main_window->graphics_data.keys()) {
 		auto data = main_window->graphics_data[key];
+		data = std::make_tuple(std::get<0>(data) / 600, std::get<1>(data) / 600, std::get<2>(data) / 600);
 		auto num = main_window->graphics_data_num[key];
 		if (num > 0) {
 			main_window->graphicsManager->setArrowPointingToScalar(key, std::get<0>(data) / num,

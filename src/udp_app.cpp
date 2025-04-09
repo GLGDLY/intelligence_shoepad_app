@@ -12,7 +12,11 @@
 const char connection_search[] = "search";
 const char connection_found[] = "found";
 
-UServer::UServer(QObject* parent) : QObject(parent), udpSocket(new QUdpSocket(this)) {
+UServer::UServer(QObject* parent) : QObject(parent), udpSocket(new QUdpSocket()), udp_thread(new QThread()) {
+	udp_thread->setObjectName("UDPThread");
+	udpSocket->moveToThread(udp_thread);
+	moveToThread(udp_thread);
+	udp_thread->start();
 	connect(udpSocket, &QUdpSocket::readyRead, this, &UServer::readPendingDatagrams);
 }
 

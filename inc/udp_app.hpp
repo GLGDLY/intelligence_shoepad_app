@@ -21,6 +21,7 @@ private slots:
 
 private:
 	QUdpSocket* udpSocket;
+	QThread* udp_thread;
 	bool running = false;
 };
 
