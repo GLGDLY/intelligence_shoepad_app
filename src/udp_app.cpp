@@ -12,7 +12,11 @@
 const char connection_search[] = "search";
 const char connection_found[] = "found";
 
-UServer::UServer(QObject* parent) : QObject(parent), udpSocket(new QUdpSocket(this)) {
+UServer::UServer(QObject* parent) : QObject(parent), udpSocket(new QUdpSocket()), udp_thread(new QThread()) {
+	udp_thread->setObjectName("UDPThread");
+	udpSocket->moveToThread(udp_thread);
+	moveToThread(udp_thread);
+	udp_thread->start();
 	connect(udpSocket, &QUdpSocket::readyRead, this, &UServer::readPendingDatagrams);
 }
 
@@ -52,7 +56,7 @@ QString UServer::start() {
 	qDebug() << "[UDP] Starting server";
 
 	// create server
-	if (!udpSocket->bind(QHostAddress::Any, 1884, QUdpSocket::ShareAddress)) {
+	if (!udpSocket->bind(1884, QUdpSocket::ShareAddress)) {
 		qDebug() << "[UDP] Failed to bind socket";
 		MsgBox box(nullptr, QMessageBox::Icon::Critical, "Error", "Failed to bind socket", QMessageBox::Ok,
 				   QMessageBox::Ok);

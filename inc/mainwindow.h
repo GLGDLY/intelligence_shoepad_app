@@ -6,6 +6,8 @@
 #include "graphicsview.hpp"
 #include "mqtt_app.hpp"
 #include "settings_io.hpp"
+#include "worker/chart_worker.hpp"
+#include "worker/graphics_worker.hpp"
 
 #include <QComboBox>
 #include <QDialog>
@@ -48,12 +50,14 @@ public:
 	~MainWindow();
 
 private:
+	const int data_series_size = 200;
+
 	Ui::MainWindow* ui;
 
 	QComboBox* comboBox;
 
 	QLabel* esp_status_label;
-	QMap<QString, qint64> esp_status_map;
+	QHash<QString, qint64> esp_status_map;
 
 	QElapsedTimer elapsed_timer;
 	qint64 start_time;
@@ -63,11 +67,18 @@ private:
 	QLineSeries* series[3];
 	QList<QPointF> chart_data[3];
 	std::tuple<qreal, qreal> chart_range_y[3];
+
 	QTimer* chart_update_timer;
 	QThread* chart_update_thread;
 	QQueue<DataPoint> data_queue;
 	bool is_data_queue_updated;
 	QMutex data_queue_mutex;
+
+	QTimer* graphics_update_timer;
+	QThread* graphics_update_thread;
+	QHash<QString, std::tuple<qreal, qreal, qreal>> graphics_data;
+	QHash<QString, qreal> graphics_data_num;
+	QMutex graphics_mutex;
 
 	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
@@ -75,7 +86,7 @@ private:
 
 	MqttApp* mqtt;
 
-	QMap<QString, DataContainer*> data_map;
+	QHash<QString, DataContainer*> data_map;
 
 	GraphicsManager* graphicsManager;
 	QLineEdit *x_input, *y_input;
@@ -85,9 +96,9 @@ private:
 
 	QSet<QString> data_clear_flags;
 
-	QMap<QString, bool> sensor_is_left;
-	QMap<QString, std::tuple<int, int>> sensor_pos;
-	QMap<QString, Rotation> sensor_rot;
+	QHash<QString, bool> sensor_is_left;
+	QHash<QString, std::tuple<int, int>> sensor_pos;
+	QHash<QString, Rotation> sensor_rot;
 
 	Settings* settings;
 
@@ -95,6 +106,12 @@ private:
 
 	const qint64 getNowNanoSec() const;
 	const qint64 getNowMicroSec() const;
+
+	friend class ChartWorker;
+	ChartWorker* chart_worker;
+
+	friend class GraphicsWorker;
+	GraphicsWorker* graphics_worker;
 
 private slots:
 	void updateMQTTLastReceived();
@@ -108,7 +125,9 @@ private slots:
 	void reloadChart();
 
 	void addChartData(time_t timestamp, int16_t X, int16_t Y, int16_t Z);
-	void updateChartData();
+
+	// void updateChartData();
+	// void updateGraphicsData();
 
 	void xySaveButtonClicked();
 	void sensorRecalibrationButtonClicked();

@@ -16,8 +16,6 @@
 #include <qdebug.h>
 
 
-const int data_series_size = 200;
-
 const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
 										  "color: #00ff00; background-color: #cfcfcf; border-radius: 5px;"};
 
@@ -37,6 +35,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, series{new QLineSeries(), new QLineSeries(), new QLineSeries()}
 	, chart_update_timer(new QTimer())
 	, chart_update_thread(new QThread())
+	, graphics_update_timer(new QTimer())
+	, graphics_update_thread(new QThread())
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
@@ -50,7 +50,9 @@ MainWindow::MainWindow(QWidget* parent)
 	, xy_left_btn(new QRadioButton("Left"))
 	, xy_right_btn(new QRadioButton("Right"))
 	, data_clear_flags()
-	, settings(new Settings()) {
+	, settings(new Settings())
+	, chart_worker(new ChartWorker(this))
+	, graphics_worker(new GraphicsWorker(this)) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -136,6 +138,7 @@ MainWindow::MainWindow(QWidget* parent)
 		}
 
 		// chartView[i]->setRenderHint(QPainter::Antialiasing);
+		chartView[i]->setRenderHint(QPainter::Antialiasing, false);
 		chartView[i]->setGeometry(450, comboBox->height() + comboBox->y() + i * chart_height, this->width() - 450,
 								  chart_height);
 		chartView[i]->setChart(chart[i]);
@@ -143,11 +146,23 @@ MainWindow::MainWindow(QWidget* parent)
 	}
 	this->reloadChart();
 
-	connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
-	this->chart_update_timer->setInterval(100); // 100ms update interval
+	// connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
+	connect(this->chart_update_timer, &QTimer::timeout, this->chart_worker, &ChartWorker::updateChartData,
+			Qt::QueuedConnection);
+	this->chart_update_timer->setInterval(50); // 10fps update interval
+	this->chart_worker->moveToThread(this->chart_update_thread);
 	this->chart_update_timer->moveToThread(this->chart_update_thread);
 	this->chart_update_thread->start();
 	QMetaObject::invokeMethod(this->chart_update_timer, "start", Qt::QueuedConnection);
+
+	// connect(this->graphics_update_timer, &QTimer::timeout, this, &MainWindow::updateGraphicsData);
+	connect(this->graphics_update_timer, &QTimer::timeout, this->graphics_worker, &GraphicsWorker::updateGraphicsData,
+			Qt::QueuedConnection);
+	this->graphics_update_timer->setInterval(50); // 50fps update interval
+	this->graphics_worker->moveToThread(this->graphics_update_thread);
+	this->graphics_update_timer->moveToThread(this->graphics_update_thread);
+	this->graphics_update_thread->start();
+	QMetaObject::invokeMethod(this->graphics_update_timer, "start", Qt::QueuedConnection);
 
 	// xy input box
 	QString x_placeholder = "X: 0-%1";
@@ -244,6 +259,16 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
+	// Stop and clean up threads
+	if (chart_update_thread->isRunning()) {
+		chart_update_thread->quit();
+		chart_update_thread->wait();
+	}
+	if (graphics_update_thread->isRunning()) {
+		graphics_update_thread->quit();
+		graphics_update_thread->wait();
+	}
+
 	delete ui;
 	for (int i = 0; i < 3; i++) {
 		delete chartView[i];
@@ -273,7 +298,7 @@ void MainWindow::updateMQTTLastReceived() {
 	// 	this->updateData(QByteArray("500/200,300,400,500"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	// this->updateCalEndStatus("test_esp", "0");
 	// 	this->updateData(QByteArray("1000/100,900,800,700"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("2000/400,500,600,700"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	this->updateData(QByteArray("2000/4000,5000,6000,7000"), QMqttTopicName("esp/test_esp/d/0"));
 	// 	do_once = false;
 	// }
 	/* Testing */
@@ -464,17 +489,45 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 		this->updateChartSelect(this->comboBox->currentIndex());
 	}
 
-	static qint64 last_update = 0;
-	if (this->getNowMicroSec() - last_update < 100) { // 100ms update interval
-		return;
-	}
-	last_update = this->getNowMicroSec();
+	// static qint64 last_update = 0;
+	// if (this->getNowMicroSec() - last_update < 20) { // 100ms update interval
+	// 	return;
+	// }
+	// last_update = this->getNowMicroSec();
 
 	const qreal scale = 600;
-	this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
-	this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
+	// this->graphicsManager->setArrowPointingToScalar(key, X / scale, Y / scale);
+	// this->graphicsManager->setDefaultSphereColorScalar(key, Z / scale);
 	// this->graphicsManager->setArrowRot90(key, this->sensor_rot[key]);
+	this->graphics_mutex.lock();
+	if (!this->graphics_data.contains(key)) {
+		this->graphics_data.insert(key, std::make_tuple(0.0, 0.0, 0.0));
+		this->graphics_data_num.insert(key, 0);
+	}
+	auto data = this->graphics_data[key];
+	auto num = this->graphics_data_num[key];
+	std::get<0>(data) += X; // / scale;
+	std::get<1>(data) += Y; // / scale;
+	std::get<2>(data) += Z; // / scale;
+	this->graphics_data[key] = data;
+	this->graphics_data_num[key] = num + 1;
+	this->graphics_mutex.unlock();
 }
+
+// void MainWindow::updateGraphicsData() {
+// 	this->graphics_mutex.lock();
+// 	for (auto key : this->graphics_data.keys()) {
+// 		auto data = this->graphics_data[key];
+// 		auto num = this->graphics_data_num[key];
+// 		if (num > 0) {
+// 			this->graphicsManager->setArrowPointingToScalar(key, std::get<0>(data) / num, std::get<1>(data) / num);
+// 			this->graphicsManager->setDefaultSphereColorScalar(key, std::get<2>(data) / num);
+// 		}
+// 		this->graphics_data[key] = std::make_tuple(0.0, 0.0, 0.0);
+// 		this->graphics_data_num[key] = 0;
+// 	}
+// 	this->graphics_mutex.unlock();
+// }
 
 void MainWindow::updateCalEndStatus(const QString esp_id, const QString sensor_id) {
 	qDebug() << "Calibration end received: " << esp_id << "::" << sensor_id;
@@ -608,75 +661,75 @@ void MainWindow::addChartData(qint64 timestamp_ms, int16_t X, int16_t Y, int16_t
 	data_queue_mutex.unlock();
 }
 
-void MainWindow::updateChartData() {
-	data_queue_mutex.lock();
-	if (!is_data_queue_updated) {
-		data_queue_mutex.unlock();
-		return;
-	}
-	is_data_queue_updated = false;
+// void MainWindow::updateChartData() {
+// 	data_queue_mutex.lock();
+// 	if (!is_data_queue_updated) {
+// 		data_queue_mutex.unlock();
+// 		return;
+// 	}
+// 	is_data_queue_updated = false;
 
-	for (const DataPoint& data : data_queue) {
-		// series[0]->append(data.time_sec, data.X);
-		// series[1]->append(data.time_sec, data.Y);
-		// series[2]->append(data.time_sec, data.Z);
-		chart_data[0].append((QPointF){data.time_sec, data.X});
-		chart_data[1].append((QPointF){data.time_sec, data.Y});
-		chart_data[2].append((QPointF){data.time_sec, data.Z});
-		qreal d[3] = {data.X, data.Y, data.Z};
-		for (int i = 0; i < 3; i++) {
-			if (chart_data[i].size() > data_series_size) {
-				chart_data[i].removeFirst();
-			}
+// 	for (const DataPoint& data : data_queue) {
+// 		// series[0]->append(data.time_sec, data.X);
+// 		// series[1]->append(data.time_sec, data.Y);
+// 		// series[2]->append(data.time_sec, data.Z);
+// 		chart_data[0].append((QPointF){data.time_sec, data.X});
+// 		chart_data[1].append((QPointF){data.time_sec, data.Y});
+// 		chart_data[2].append((QPointF){data.time_sec, data.Z});
+// 		qreal d[3] = {data.X, data.Y, data.Z};
+// 		for (int i = 0; i < 3; i++) {
+// 			if (chart_data[i].size() > data_series_size) {
+// 				chart_data[i].removeFirst();
+// 			}
 
-			const qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
-			const qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
-			chart_range_y[i] = std::make_tuple(minY, maxY);
-		}
-	}
-	data_queue.clear();
-	data_queue_mutex.unlock();
+// 			const qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
+// 			const qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
+// 			chart_range_y[i] = std::make_tuple(minY, maxY);
+// 		}
+// 	}
+// 	data_queue.clear();
+// 	data_queue_mutex.unlock();
 
-	if (chart_data[0].size() == 0) {
-		return;
-	}
+// 	if (chart_data[0].size() == 0) {
+// 		return;
+// 	}
 
-	chartView[0]->setUpdatesEnabled(false);
-	chartView[1]->setUpdatesEnabled(false);
-	chartView[2]->setUpdatesEnabled(false);
+// 	chartView[0]->setUpdatesEnabled(false);
+// 	chartView[1]->setUpdatesEnabled(false);
+// 	chartView[2]->setUpdatesEnabled(false);
 
-	series[0]->clear();
-	series[1]->clear();
-	series[2]->clear();
-	series[0]->replace(chart_data[0]);
-	series[1]->replace(chart_data[1]);
-	series[2]->replace(chart_data[2]);
+// 	series[0]->clear();
+// 	series[1]->clear();
+// 	series[2]->clear();
+// 	series[0]->replace(chart_data[0]);
+// 	series[1]->replace(chart_data[1]);
+// 	series[2]->replace(chart_data[2]);
 
-	chartView[0]->setUpdatesEnabled(true);
-	chartView[1]->setUpdatesEnabled(true);
-	chartView[2]->setUpdatesEnabled(true);
+// 	chartView[0]->setUpdatesEnabled(true);
+// 	chartView[1]->setUpdatesEnabled(true);
+// 	chartView[2]->setUpdatesEnabled(true);
 
-	for (int i = 0; i < 3; i++) {
-		qreal minX = series[i]->points().first().x();
-		qreal maxX = series[i]->points().last().x();
-		// qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
-		// qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
+// 	for (int i = 0; i < 3; i++) {
+// 		qreal minX = series[i]->points().first().x();
+// 		qreal maxX = series[i]->points().last().x();
+// 		// qreal minY = qMin(qMin(std::get<0>(chart_range_y[i]), d[i]), std::get<0>(chart_range_y[i]));
+// 		// qreal maxY = qMax(qMax(std::get<1>(chart_range_y[i]), d[i]), std::get<1>(chart_range_y[i]));
 
-		// chart_range_y[i] = std::make_tuple(minY, maxY);
-		qreal minY = std::get<0>(chart_range_y[i]);
-		qreal maxY = std::get<1>(chart_range_y[i]);
+// 		// chart_range_y[i] = std::make_tuple(minY, maxY);
+// 		qreal minY = std::get<0>(chart_range_y[i]);
+// 		qreal maxY = std::get<1>(chart_range_y[i]);
 
-		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
-		const qreal padding = ceil((maxY - minY) * 0.2);
-		chart[i]->axes(Qt::Vertical).back()->setRange(minY - padding, maxY + padding);
+// 		chart[i]->axes(Qt::Horizontal).back()->setRange(minX, maxX);
+// 		const qreal padding = ceil((maxY - minY) * 0.2);
+// 		chart[i]->axes(Qt::Vertical).back()->setRange(minY - padding, maxY + padding);
 
-		chart[i]->update();
-		chartView[i]->update();
-		// qDebug() << "Chart " << i << " appended to size: " << series[i]->points().size();
-		// qDebug() << "x range: " << minX << " " << maxX;
-		// qDebug() << "y range: " << minY << " " << maxY;
-	}
-}
+// 		chart[i]->update();
+// 		chartView[i]->update();
+// 		// qDebug() << "Chart " << i << " appended to size: " << series[i]->points().size();
+// 		// qDebug() << "x range: " << minX << " " << maxX;
+// 		// qDebug() << "y range: " << minY << " " << maxY;
+// 	}
+// }
 
 void MainWindow::xySaveButtonClicked() {
 	qDebug() << "Save button clicked";

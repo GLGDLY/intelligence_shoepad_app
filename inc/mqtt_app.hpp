@@ -40,7 +40,7 @@ private slots:
 	void onMessage(const QByteArray& message, const QMqttTopicName& topic);
 
 private:
-	UServer udp_server;
+	UServer* udp_server;
 	QMqttClient* client;
 	QMqttSubscription* subscription;
 

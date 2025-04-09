@@ -59,8 +59,8 @@ set(INC_DIR inc)
 
 set(TS_FILES ${SRC_DIR}/intelligence_shoepad_app_en_HK.ts)
 
-file(GLOB SRC_FILES ${SRC_DIR}/*.cpp ${SRC_DIR}/*.ui)
-file(GLOB HEADERS ${INC_DIR}/*.h ${INC_DIR}/*.hpp)
+file(GLOB_RECURSE SRC_FILES ${SRC_DIR}/*.cpp ${SRC_DIR}/*.ui)
+file(GLOB_RECURSE HEADERS ${INC_DIR}/*.h ${INC_DIR}/*.hpp)
 
 set(PROJECT_SOURCES
     ${SRC_FILES}
