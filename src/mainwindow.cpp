@@ -149,7 +149,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// connect(this->chart_update_timer, &QTimer::timeout, this, &MainWindow::updateChartData);
 	connect(this->chart_update_timer, &QTimer::timeout, this->chart_worker, &ChartWorker::updateChartData,
 			Qt::QueuedConnection);
-	this->chart_update_timer->setInterval(50); // 10fps update interval
+	this->chart_update_timer->setInterval(100); // 10fps update interval
 	this->chart_worker->moveToThread(this->chart_update_thread);
 	this->chart_update_timer->moveToThread(this->chart_update_thread);
 	this->chart_update_thread->start();

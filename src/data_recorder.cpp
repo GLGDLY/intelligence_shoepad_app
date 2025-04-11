@@ -124,7 +124,7 @@ void DataRecorder::dataRecord(QString key, qint64 timestamp, int16_t T, int16_t 
 	if (state != RecorderStateRecording) {
 		return;
 	}
-	qDebug() << "data record called";
+	// qDebug() << "data record called";
 	QJsonArray data = {timestamp, T, X, Y, Z};
 	if (!this->obj->contains(key)) {
 		QJsonArray arr;
@@ -138,7 +138,7 @@ void DataRecorder::dataRecord(QString key, qint64 timestamp, int16_t T, int16_t 
 	// qDebug() << "arr: " << doc1.toJson();
 
 
-	qDebug() << "Data recorded: " << key << " " << timestamp << " " << T << " " << X << " " << Y << " " << Z;
+	// qDebug() << "Data recorded: " << key << " " << timestamp << " " << T << " " << X << " " << Y << " " << Z;
 
 	// QJsonDocument doc(*this->obj);
 	// qDebug() << "obj: " << doc.toJson();
