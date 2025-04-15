@@ -162,6 +162,8 @@ GraphicsManager::GraphicsManager(QGraphicsView* view, QObject* parent)
 	m_thread->setObjectName("GraphicsManagerThread");
 	m_thread->start();
 	moveToThread(m_thread);
+	m_view->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	m_view->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	m_view->setViewport(new QOpenGLWidget());
 	m_view->setRenderHint(QPainter::Antialiasing, false);
 	m_scene = new QGraphicsScene();

@@ -67,6 +67,7 @@ CMakeLists.txt.user*
 
 # Python byte code
 *.pyc
+__pycache__/
 
 # Binaries
 # --------
@@ -79,3 +80,8 @@ build
 bin
 
 broker/lib
+
+model/data/
+*.pb
+*.h5
+class_names.txt

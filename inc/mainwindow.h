@@ -7,6 +7,7 @@
 #include "mqtt_app.hpp"
 #include "settings_io.hpp"
 #include "worker/chart_worker.hpp"
+#include "worker/classification_worker.hpp"
 #include "worker/graphics_worker.hpp"
 
 #include <QComboBox>
@@ -80,6 +81,10 @@ private:
 	QHash<QString, qreal> graphics_data_num;
 	QMutex graphics_mutex;
 
+	QTimer* classification_timer;
+	QThread* classification_update_thread;
+	QLabel* classification_result_label;
+
 	QPushButton *mqtt_state_btn, *start_stop_btn;
 	QMqttClient::ClientState mqtt_state;
 	QTimer* mqtt_last_received_timer;
@@ -113,6 +118,9 @@ private:
 	friend class GraphicsWorker;
 	GraphicsWorker* graphics_worker;
 
+	friend class ClassificationWorker;
+	ClassificationWorker* classification_worker;
+
 private slots:
 	void updateMQTTLastReceived();
 
@@ -139,6 +147,8 @@ private slots:
 	void replayFinished();
 
 	void updateEspStatus(const QString esp_id, bool status);
+
+	void updateClassificationResult(const QString& result);
 
 	void clear();
 };

@@ -13,7 +13,7 @@
 obj = {
 	"init_time": 0,
 
-	{key}: [
+	{sensor_id}: [
 		[timestamp, T, X, Y, Z],
 		[timestamp, T, X, Y, Z],
 		...

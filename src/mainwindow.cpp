@@ -5,6 +5,7 @@
 #include "infobox.hpp"
 
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QGraphicsEffect>
 #include <QLineEdit>
 #include <QPushButton>
@@ -13,7 +14,6 @@
 #include <QValueAxis>
 #include <QtLogging>
 #include <QtMinMax>
-#include <qdebug.h>
 
 
 const QString esp_status_label_style[] = {"color: #ff0000; background-color: #cfcfcf; border-radius: 5px;",
@@ -37,6 +37,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, chart_update_thread(new QThread())
 	, graphics_update_timer(new QTimer())
 	, graphics_update_thread(new QThread())
+	, classification_timer(new QTimer())
+	, classification_update_thread(new QThread())
 	, mqtt_state_btn(new QPushButton())
 	, start_stop_btn(new QPushButton())
 	, mqtt_state(QMqttClient::ClientState::Disconnected)
@@ -52,7 +54,8 @@ MainWindow::MainWindow(QWidget* parent)
 	, data_clear_flags()
 	, settings(new Settings())
 	, chart_worker(new ChartWorker(this))
-	, graphics_worker(new GraphicsWorker(this)) {
+	, graphics_worker(new GraphicsWorker(this))
+	, classification_worker(new ClassificationWorker()) {
 	ui->setupUi(this);
 
 	this->setWindowTitle(tr("Intelligence Shoepad"));
@@ -163,6 +166,40 @@ MainWindow::MainWindow(QWidget* parent)
 	this->graphics_update_timer->moveToThread(this->graphics_update_thread);
 	this->graphics_update_thread->start();
 	QMetaObject::invokeMethod(this->graphics_update_timer, "start", Qt::QueuedConnection);
+
+	QFileInfo file_info("./model.pb");
+	if (!file_info.exists()) {
+		qDebug() << "Model file not found: " << file_info.absoluteFilePath();
+		showInfoBox("Model file not found: " + file_info.absoluteFilePath());
+		return;
+	}
+	std::string model_path = file_info.absoluteFilePath().toStdString();
+	file_info.setFile("./class_names.txt");
+	if (!file_info.exists()) {
+		qDebug() << "Class names file not found: " << file_info.absoluteFilePath();
+		showInfoBox("Class names file not found: " + file_info.absoluteFilePath());
+		return;
+	}
+	std::string label_path = file_info.absoluteFilePath().toStdString();
+	this->classification_worker->init(model_path, label_path);
+	connect(this->classification_timer, &QTimer::timeout, this->classification_worker,
+			&ClassificationWorker::classifyCurrentSlot, Qt::QueuedConnection);
+	this->classification_timer->setInterval(1500); // update interval
+	this->classification_worker->moveToThread(this->classification_update_thread);
+	this->classification_timer->moveToThread(this->classification_update_thread);
+	this->classification_update_thread->start();
+	QMetaObject::invokeMethod(this->classification_timer, "start", Qt::QueuedConnection);
+
+	classification_result_label = new QLabel(this);
+	classification_result_label->setGeometry(350, this->height() - 25 - 10, 100, 30);
+	classification_result_label->setStyleSheet(
+		"QLabel { background-color:rgb(212, 212, 212); color: #000; border-radius: 5px; }");
+	classification_result_label->setFont(QFont("Calibri", 11, QFont::Medium));
+	classification_result_label->setText("N.A.");
+	classification_result_label->setAlignment(Qt::AlignCenter);
+	this->layout()->addWidget(classification_result_label);
+	connect(this->classification_worker, &ClassificationWorker::sig_classificationResult, this,
+			&MainWindow::updateClassificationResult);
 
 	// xy input box
 	QString x_placeholder = "X: 0-%1";
@@ -294,11 +331,17 @@ void MainWindow::updateMQTTLastReceived() {
 	/* Testing */
 	// static bool do_once = true;
 	// if (do_once) {
-	// 	this->updateData(QByteArray("0/100,200,300,400"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("500/200,300,400,500"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	// this->updateCalEndStatus("test_esp", "0");
-	// 	this->updateData(QByteArray("1000/100,900,800,700"), QMqttTopicName("esp/test_esp/d/0"));
-	// 	this->updateData(QByteArray("2000/4000,5000,6000,7000"), QMqttTopicName("esp/test_esp/d/0"));
+	// 	for (int i = 0; i < 5; i++) {
+	// 		this->updateData(QByteArray("0/100,200,300,400"), QMqttTopicName("esp/test_esp/d/" + QString::number(i)));
+	// 		this->updateData(QByteArray("500/200,300,400,500"), QMqttTopicName("esp/test_esp/d/" + QString::number(i)));
+	// 		// this->updateCalEndStatus("test_esp", "0");
+	// 		this->updateData(QByteArray("1000/100,900,800,700"),
+	// 						 QMqttTopicName("esp/test_esp/d/" + QString::number(i)));
+	// 		this->updateData(QByteArray("2000/4000,5000,6000,7000"),
+	// 						 QMqttTopicName("esp/test_esp/d/" + QString::number(i)));
+	// 		this->updateData(QByteArray("2000/4100,200,300,400"),
+	// 						 QMqttTopicName("esp/test_esp/d/" + QString::number(i)));
+	// 	}
 	// 	do_once = false;
 	// }
 	/* Testing */
@@ -372,6 +415,7 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 
 	if (this->recorder.getState() != RecorderStateReplaying) {
 		this->recorder.dataRecord(key, timestamp_ms, T, X, Y, Z);
+		this->classification_worker->addData(key, X, Y, Z);
 		this->processData(key, timestamp_ms, T, X, Y, Z);
 	}
 	this->updateEspStatus(topic.levels().at(1), true);
@@ -901,6 +945,10 @@ void MainWindow::updateEspStatus(const QString esp_id, bool status) {
 		this->esp_status_label->setText(status ? "Online" : "Offline");
 		this->esp_status_label->setStyleSheet(esp_status_label_style[status]);
 	}
+}
+
+void MainWindow::updateClassificationResult(const QString& result) {
+	this->classification_result_label->setText(result);
 }
 
 void MainWindow::clear() {
