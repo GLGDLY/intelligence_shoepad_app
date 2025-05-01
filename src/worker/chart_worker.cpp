@@ -43,9 +43,9 @@ void ChartWorker::updateChartData() {
 	main_window->chartView[1]->setUpdatesEnabled(false);
 	main_window->chartView[2]->setUpdatesEnabled(false);
 
-	main_window->series[0]->clear();
-	main_window->series[1]->clear();
-	main_window->series[2]->clear();
+	// main_window->series[0]->clear();
+	// main_window->series[1]->clear();
+	// main_window->series[2]->clear();
 	main_window->series[0]->replace(main_window->chart_data[0]);
 	main_window->series[1]->replace(main_window->chart_data[1]);
 	main_window->series[2]->replace(main_window->chart_data[2]);

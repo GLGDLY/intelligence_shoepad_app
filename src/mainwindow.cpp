@@ -415,13 +415,13 @@ void MainWindow::updateData(const QByteArray& message, const QMqttTopicName& top
 
 	if (this->recorder.getState() != RecorderStateReplaying) {
 		this->recorder.dataRecord(key, timestamp_ms, T, X, Y, Z);
-		this->classification_worker->addData(key, X, Y, Z);
 		this->processData(key, timestamp_ms, T, X, Y, Z);
 	}
 	this->updateEspStatus(topic.levels().at(1), true);
 }
 
 void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_t X, int16_t Y, int16_t Z) {
+	this->classification_worker->addData(key, X, Y, Z);
 	// qDebug() << "Processing data: " << key << " " << timestamp_ms << " " << T << " " << X << " " << Y << " " << Z;
 
 	bool need_reload_chart = false;
@@ -437,8 +437,8 @@ void MainWindow::processData(QString key, qint64 timestamp_ms, int16_t T, int16_
 	const qreal time_sec = MSecToSec(timestamp_ms - this->start_time);
 	// qDebug() << "Adding data to chart: " << time_sec << " " << X << " " << Y << " " << Z;
 
-	if (time_sec != 0 && time_sec <= series[0]->points().last().x()) {
-		// qDebug() << "Invalid time: " << time_sec << " " << series[0]->points().last().x();
+	if (time_sec != 0 && !this->chart_data[0].empty() && time_sec <= this->chart_data[0].last().x()) {
+		// qDebug() << "Invalid time: " << time_sec << " " << this->chart_data[0].last().x();
 		return;
 	}
 
@@ -596,14 +596,18 @@ void MainWindow::updateChartSelect(int index) {
 		qDebug() << "Data not found";
 		return;
 	}
+	if (data->size() == 0) {
+		qDebug() << "Data size is 0";
+		return;
+	}
 	// qDebug() << "Data size: " << data->size();
 	data_queue_mutex.lock();
 	data_queue.clear();
 	data_queue_mutex.unlock();
 
-	series[0]->clear();
-	series[1]->clear();
-	series[2]->clear();
+	// series[0]->clear();
+	// series[1]->clear();
+	// series[2]->clear();
 	chart_data[0].clear();
 	chart_data[1].clear();
 	chart_data[2].clear();
@@ -959,7 +963,10 @@ void MainWindow::clear() {
 	this->data_map.clear();
 	this->comboBox->clear();
 	this->graphicsManager->clear();
-	this->reloadChart();
+	// this->reloadChart();
+	for (int i = 0; i < 3; i++) {
+		chart_data[i].clear();
+	}
 	this->elapsed_timer.restart();
 	this->start_time = this->getNowMicroSec();
 }

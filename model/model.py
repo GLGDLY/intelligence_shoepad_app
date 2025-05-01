@@ -14,3 +14,11 @@ def create_model(num_classes: int) -> tf.keras.Model:
         ]
     )
     return model
+
+
+if __name__ == "__main__":
+    model = create_model(num_classes=2)
+    model.summary()
+    tf.keras.utils.plot_model(
+        model, to_file="model.png", show_shapes=True, show_layer_names=True
+    )

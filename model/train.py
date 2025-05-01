@@ -8,6 +8,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
+from datetime import datetime
 
 from model import create_model
 
@@ -15,7 +16,6 @@ from model import create_model
 def load_and_preprocess_data(data_dir):
     samples, labels = [], []
 
-    # Collect labels and raw data
     for filename in os.listdir(data_dir):
         if filename.endswith(".json"):
             class_name = filename.split("_")[1]
@@ -35,20 +35,18 @@ def load_and_preprocess_data(data_dir):
 
             samples.append(sample_data)
 
-    # save a class_names.txt file
     class_names = sorted(set(labels))
     with open("class_names.txt", "w") as f:
         for name in class_names:
             f.write(f"{name}\n")
 
-    # Return NumPy arrays instead of ragged tensors
     samples = np.array(samples, dtype=object)
     labels = LabelEncoder().fit_transform(labels)
 
     return samples, tf.keras.utils.to_categorical(labels)
 
 
-def train(X_train, y_train, X_val, y_val, X_test, y_test):
+def train(X_train, y_train, X_val, y_val, X_test, y_test, model_name, fold_num):
     model = create_model(y.shape[1])
     model.compile(
         optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
@@ -79,6 +77,13 @@ def train(X_train, y_train, X_val, y_val, X_test, y_test):
             patience=50,
             restore_best_weights=True,
             verbose=False,
+        ),
+        tf.keras.callbacks.TensorBoard(
+            log_dir=os.path.join("logs", f"{model_name}_{fold_num}"),
+            histogram_freq=1,
+            write_graph=True,
+            write_images=True,
+            update_freq="epoch",
         ),
     ]
 
@@ -115,6 +120,7 @@ if __name__ == "__main__":
     # model.save("model.pb")
 
     # k fold
+    model_name = datetime.now().strftime("%Y%m%d_%H%M%S")
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     results = []
     for fold, (train_index, val_index) in enumerate(kf.split(X_trainval)):
@@ -123,14 +129,13 @@ if __name__ == "__main__":
         y_train, y_val = y_trainval[train_index], y_trainval[val_index]
 
         model, test_loss, test_acc = train(
-            X_train, y_train, X_val, y_val, X_test, y_test
+            X_train, y_train, X_val, y_val, X_test, y_test, model_name, fold + 1
         )
         results.append((model, test_loss, test_acc))
 
     for i, (model, test_loss, test_acc) in enumerate(results):
         print(f"Fold {i + 1} Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.4f}")
 
-    # Save the best model
     best_model = min(results, key=lambda x: x[1])
     best_model[0].save("model.pb")
     print(f"Model with loss {best_model[1]:.4f} saved as model.pb")

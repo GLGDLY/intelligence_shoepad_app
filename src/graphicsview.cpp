@@ -111,7 +111,6 @@ void HeatmapManager::setCellScalar(int xPos, int yPos, const int scalar) {
 
 	// add new color
 	if (scalar > 0) {
-		m_cells[cell] = scalar;
 		m_cellScalars[HEATMAP_FRAME_NEXT][cellX][cellY] = scalar;
 		const int radiation_cell_num = scalar / m_radiation_decay;
 		for (int i = -radiation_cell_num; i <= radiation_cell_num; ++i) {
@@ -127,8 +126,6 @@ void HeatmapManager::setCellScalar(int xPos, int yPos, const int scalar) {
 				}
 			}
 		}
-	} else {
-		m_cells.remove(cell);
 	}
 
 	// update();
@@ -151,8 +148,11 @@ void HeatmapManager::setCellScalarBatch(const std::vector<std::tuple<int, int, i
 }
 
 void HeatmapManager::clear() {
-	m_cells.clear();
-	update();
+	for (int i = 0; i < m_width / m_cellSize; ++i) {
+		for (int j = 0; j < m_height / m_cellSize; ++j) {
+			m_cellScalars[HEATMAP_FRAME_NEXT][i][j] = 0;
+		}
+	}
 }
 
 int HeatmapManager::cellSize() const { return m_cellSize; }
@@ -197,14 +197,9 @@ void GraphicsManager::createBackground() {
 	m_height = m_bgPixmap.height();
 	m_scene->addPixmap(m_bgPixmap)->setZValue(0);
 
-	if (!m_heatmap) {
-		m_heatmap = new HeatmapManager(m_width, m_height, 5, 50);
-		m_heatmap->setZValue(1);
-		m_scene->addItem(m_heatmap);
-	} else {
-		m_heatmap->clear();
-		m_heatmap->update();
-	}
+	m_heatmap = new HeatmapManager(m_width, m_height, 5, 50);
+	m_heatmap->setZValue(1);
+	m_scene->addItem(m_heatmap);
 }
 
 void GraphicsManager::wrap_x(int& x, bool is_left) {

@@ -82,6 +82,7 @@ bin
 broker/lib
 
 model/data/
+model/logs/
 *.pb
 *.h5
 class_names.txt

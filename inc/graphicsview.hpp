@@ -57,7 +57,6 @@ private:
 	int m_height;
 	int m_cellSize;
 	int m_radiation_decay;
-	QMap<QPair<int, int>, int> m_cells;
 	int** m_cellScalars[NUM_OF_HEATMAP_FRAME];
 };
 

@@ -166,19 +166,19 @@ bool DataRecorder::startReplaying(QString path) {
 	}
 
 	QJsonObject new_obj = doc.object();
-	if (!new_obj.contains("init_time")) {
-		qWarning() << "Invalid recording file: no init_time";
-		showInfoBox("Invalid recording file: no init_time");
-		return false;
-	}
+	// if (!new_obj.contains("init_time")) {
+	// 	qWarning() << "Invalid recording file: no init_time";
+	// 	showInfoBox("Invalid recording file: no init_time");
+	// 	return false;
+	// }
 
 	for (auto key : new_obj.keys()) {
 		if (key == "init_time") {
-			if (!new_obj.value(key).isDouble()) {
-				qWarning() << "Invalid recording file: init_time not number";
-				showInfoBox("Invalid recording file: init_time not number");
-				return false;
-			}
+			// if (!new_obj.value(key).isDouble()) {
+			// 	qWarning() << "Invalid recording file: init_time not number";
+			// 	showInfoBox("Invalid recording file: init_time not number");
+			// 	return false;
+			// }
 			continue;
 		}
 		if (!new_obj.value(key).isArray()) {
@@ -224,7 +224,19 @@ bool DataRecorder::startReplaying(QString path) {
 	}
 
 	this->replay_start_time = QDateTime::currentDateTime();
-	this->replay_data_start_time = QDateTime::fromMSecsSinceEpoch(this->obj->value("init_time").toInt());
+	// this->replay_data_start_time = QDateTime::fromMSecsSinceEpoch(this->obj->value("init_time").toInt());
+	this->replay_data_start_time = QDateTime::fromMSecsSinceEpoch(0);
+	for (auto it : this->replay_its) {
+		if (it->hasNext()) {
+			QJsonArray data = it->peekNext().toArray();
+			QDateTime data_time = QDateTime::fromMSecsSinceEpoch(data.at(0).toInt());
+			if (this->replay_data_start_time == QDateTime::fromMSecsSinceEpoch(0)
+				|| this->replay_data_start_time > data_time) {
+				this->replay_data_start_time = data_time;
+			}
+			break;
+		}
+	}
 	this->replay_started_do_once = true;
 	this->replay_finished_do_once = true;
 
